@@ -135,68 +135,57 @@ export async function ActualizarFechasContacto(contacto, phone) {
   }
 }
 
-export async function ActualizarResumenUltimaConversacion(contacto, phone, resumen) {
-  console.log(`🧠 Intentando guardar resumen para ${phone}:`, resumen)
+export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
+  console.log(`🧠 Intentando guardar resumen para ${phone}...`)
 
+  // PASO 1: CONSERVAMOS TU BLOQUE DE VALIDACIÓN VITAL
   // Validaciones para guardar solo resúmenes útiles
   if (
-    !resumen ||
-    resumen.length < 5 ||
-    resumen.trim().startsWith('{') ||
-    resumen.trim().startsWith('```json') ||
-    resumen.toLowerCase().includes('"nombre"') ||
-    resumen.toLowerCase().includes('"email"')
+    !nuevoResumen ||
+    nuevoResumen.length < 10 ||
+    nuevoResumen.trim().startsWith('{') ||
+    nuevoResumen.trim().startsWith('```json') ||
+    nuevoResumen.toLowerCase().includes('"nombre"') ||
+    nuevoResumen.toLowerCase().includes('"email"')
   ) {
-    console.log(`⛔ Resumen ignorado por formato inválido para ${phone}`)
+    console.log(`⛔ Resumen ignorado por formato inválido o de baja calidad para ${phone}`)
     return
   }
 
-  const existeEnCache = !!getContactoByTelefono(phone)
-  let contactoCompleto = getContactoByTelefono(phone) || contacto || {}
+  // PASO 2: OBTENEMOS EL ESTADO ACTUAL DEL CONTACTO
+  const contactoPrevio = getContactoByTelefono(phone) || { TELEFONO: phone };
 
-  const datos = {
-    ...contactoCompleto,
+  // PASO 3: IMPLEMENTAMOS LA NUEVA LÓGICA DE "CORRIMIENTO"
+  const datosParaGuardar = {
+    ...contactoPrevio,
     TELEFONO: phone,
-    RESUMEN_ULTIMA_CONVERSACION: resumen.trim()
+    // El nuevo resumen (limpio con .trim()) siempre va al campo principal
+    RESUMEN_ULTIMA_CONVERSACION: nuevoResumen.trim(),
+    // El anterior 1 pasa a ser el 2
+    RESUMEN_2: contactoPrevio.RESUMEN_ULTIMA_CONVERSACION || '',
+    // El anterior 2 pasa a ser el 3
+    RESUMEN_3: contactoPrevio.RESUMEN_2 || ''
   }
 
+  // PASO 4: GUARDAMOS EN LA BASE DE DATOS DE FORMA SEGURA
   try {
-    console.log(`[DEBUG RESUMEN] ENCOLAR Tabla=${HOJA_CONTACTOS}`)
-    console.log('[DEBUG RESUMEN] Row ENCOLADO (crudo):', JSON.stringify(datos, null, 2))
+    const props = { Action: 'Edit' }
+    // Usamos limpiarRowContacto para asegurar que los datos estén bien formateados antes de enviarlos
+    const row = limpiarRowContacto(datosParaGuardar, 'Edit')
+    
+    console.log('[DEBUG RESUMEN] Encolando tarea para actualizar historial de 3 resúmenes.');
 
-    // ====== INICIO DE LA CORRECCIÓN ======
-    // Movemos este bloque aquí arriba para que la variable exista antes de usarla.
-    const propsDinamicas = { UserSettings: { DETECTAR: false } }
-    // ====== FIN DE LA CORRECCIÓN ======
-
-    const row = limpiarRowContacto(datos, propsDinamicas.Action)
-    console.log('[DEBUG RESUMEN] Row FINAL (sanitizado):', JSON.stringify(row, null, 2))
-
-    console.log(`[DEBUG RESUMEN] Acción AppSheet = ${propsDinamicas.Action}`)
-
-    // Instancia FRESCA por operación
     await addTask(() => {
-      // Ya no creamos una configuración local. Usamos la que sabemos que funciona.
-      console.log('[DEBUG FECHAS] Usando la configuración global APPSHEETCONFIG para la operación')
-      return postTableWithRetrySafe(APPSHEETCONFIG, HOJA_CONTACTOS, [row], propsDinamicas)
+      return postTableWithRetrySafe(APPSHEETCONFIG, process.env.PAG_CONTACTOS, [row], props)
     })
 
-    console.log(`📝 Resumen actualizado para ${phone}`)
-    actualizarContactoEnCache({ ...contactoCompleto, ...datos })
+    console.log(`📝 Historial de resúmenes actualizado en AppSheet para ${phone}`)
+    // Actualizamos la caché local con los nuevos datos para mantener la consistencia
+    actualizarContactoEnCache(datosParaGuardar)
   } catch (err) {
-    console.log(`❌ Error guardando resumen para ${phone} via queue:`, err?.message)
-    if (err?.response) {
-      console.log('[DEBUG RESUMEN] ERROR STATUS:', err.response.status)
-      const body = err.response.data ?? err.response.body ?? {}
-      try { console.log('[DEBUG RESUMEN] ERROR BODY:', JSON.stringify(body, null, 2)) }
-      catch { console.log('[DEBUG RESUMEN] ERROR BODY (raw):', body) }
-    } else if (err?.body) {
-      console.log('[DEBUG RESUMEN] ERROR BODY (body):', err.body)
-    } else if (err?.stack) {
-      console.log('[DEBUG RESUMEN] ERROR STACK:', err.stack)
-    }
-
-    actualizarContactoEnCache({ ...contactoCompleto, ...datos })
+    console.log(`❌ Error guardando historial de resúmenes para ${phone} via queue:`, err?.message)
+    // Guardamos en caché igualmente para no perder la información localmente
+    actualizarContactoEnCache(datosParaGuardar)
     console.log(`⚠️ Cache actualizada localmente para ${phone} pese a error en AppSheet`)
   }
 }
