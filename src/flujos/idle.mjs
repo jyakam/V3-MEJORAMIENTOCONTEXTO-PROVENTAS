@@ -25,10 +25,9 @@ export const idleFlow = addKeyword(EVENTS.ACTION).addAction(
         // 2. Llama a OpenAI para hacer el resumen global
         const resumenGlobal = await generarResumenMejorado(textoHistorial, phone);
 
-        // 3. Guarda el resumen en AppSheet/Google Sheets
-        const contacto = getContactoByTelefono(phone);
+       // 3. Guarda el resumen en AppSheet/Google Sheets
         if (resumenGlobal) {
-          await ActualizarResumenUltimaConversacion(contacto, phone, resumenGlobal);
+          await ActualizarResumenUltimaConversacion(phone, resumenGlobal);
           console.log(`✅ [IDLE] Resumen global de sesión guardado para ${phone}`);
         }
       }
