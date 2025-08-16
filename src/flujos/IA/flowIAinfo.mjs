@@ -495,6 +495,11 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
 // --- FIN DE BLOQUE DE DEPURACIÓN DE FECHAS ---
     if (contacto) await ActualizarFechasContacto(contacto, phone);
 
+    // --- INICIO: Carga de Contexto Anterior (CAPTURE) ---
+    const contextoAnterior = await cargarContextoAnterior(phone);
+    const promptConContexto = inyectarContextoAlPrompt(contextoAnterior);
+    // --- FIN: Carga de Contexto Anterior (CAPTURE) ---
+
     // ✅✅✅ INICIO DE LA CORRECCIÓN (SECCIÓN CAPTURE) ✅✅✅
     await state.update({ productoDetectadoEnImagen: false, productoReconocidoPorIA: '' });
     const resultadoDeteccion = await DetectarArchivos(ctx, state);
