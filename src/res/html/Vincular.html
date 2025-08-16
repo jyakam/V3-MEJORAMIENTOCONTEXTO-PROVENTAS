@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conectar a WhatsApp</title>
+  <style>
+    :root {
+      --fondo-general: #fff1f3;
+      --fondo-panel: #ffffff;
+      --color-texto: #1a1a1a;
+      --borde-panel: #ccc;
+      --fuente: 'Helvetica Neue', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--fondo-general);
+      font-family: var(--fuente);
+      color: var(--color-texto);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding-top: 2rem;
+      box-sizing: border-box;
+    }
+
+    .header {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      align-items: flex-start;
+      padding-left: 1rem;   
+      margin-bottom: 1rem;
+    }
+
+    .contenedor {
+      background-color: var(--fondo-panel);
+      border: 1px solid var(--borde-panel);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      padding: 2rem;
+      max-width: 1080px;
+      width: 90%;
+      min-height: 500px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+      gap: 2rem;
+      box-sizing: border-box;
+    }
+
+    .instrucciones {
+      flex: 1;
+    }
+
+    .instrucciones h1 {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+      color: var(--color-texto);
+      font-weight: normal;
+    }
+
+    .instrucciones p.subtitulo {
+      font-size: 1.125rem;
+      margin-top: 0.2rem;
+      margin-bottom: 2rem;
+      color: var(--color-texto);
+      line-height: 1.5;
+    }
+
+    .instrucciones ol {
+      font-size: 1.125rem;
+      line-height: 1.8;
+      padding-left: 1.2rem;
+      margin: 0;
+    }
+
+    .instrucciones ol li {
+      margin-bottom: 1rem;
+    }
+
+    .qr {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr img {
+      width: 300px;
+      max-width: 90%;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      filter: blur(10px);
+      transition: all 0.4s ease;
+      cursor: pointer;
+    }
+
+    .qr img.clear {
+      filter: none;
+      transform: scale(1.02);
+    }
+
+    #mensaje {
+      margin-top: 1rem;
+      font-size: 1.05rem;
+      color: #777;
+      transition: opacity 0.4s ease;
+    }
+
+    #mensaje.oculto {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    footer {
+      margin-top: 2rem;
+      text-align: center;
+      font-size: 1rem;
+      color: #333;
+      padding-bottom: 1rem;
+    }
+
+    footer a {
+      color: #1a1a1a;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      .contenedor {
+        flex-direction: column;
+        align-items: center;
+        padding: 1.5rem;
+      }
+
+      .instrucciones, .qr {
+        width: 100%;
+        text-align: center;
+      }
+
+      .instrucciones ol {
+        padding-left: 0;
+        text-align: left;
+      }
+
+      .qr img {
+        width: 250px;
+      }
+
+      .header {
+        justify-content: center;
+        padding-left: 0;
+      }
+    }
+  </style>
+  <script>
+    const duracion = 20;
+    const rutaImagen = '../../../bot.qr.png'; // Asegúrate que exista en tu servidor
+
+    function cambiarImagen() {
+      const img = document.getElementById('imagen');
+      const timestamp = new Date().getTime();
+      img.src = `${rutaImagen}?v=${timestamp}`;
+      img.classList.remove('clear');
+      document.getElementById('mensaje').classList.remove('oculto');
+    }
+
+    function regenerarImagen() {
+      const img = document.getElementById('imagen');
+      img.classList.add('clear');
+      document.getElementById('mensaje').classList.add('oculto');
+    }
+
+    window.onload = () => {
+      cambiarImagen();
+      setInterval(cambiarImagen, duracion * 1000);
+    };
+  </script>
+</head>
+<body>
+  <div class="header">
+    <img
+      src="https://static.wixstatic.com/media/0178a8_763e901ce9d84609a533ee13973d40da~mv2.png/v1/fill/w_184,h_67,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/HireBot%20Official%20Logo%20(Graph)%20(2).png"
+      width="100"
+      alt="Logo HireBot"
+    />
+  </div>
+
+  <div class="contenedor">
+    <div class="instrucciones">
+      <h1>Conecta a tu Agente-AI a WhatsApp</h1>
+      <p class="subtitulo">Vincula tu WhatsApp aquí para que tu Agente-AI comience a trabajar para ti. Sigue estos pasos:</p>
+      <ol>
+        <li>Haz click en la imagen del QR para visualizarla correctamente.</li>
+        <li>En tu aplicación de WhatsApp de tu teléfono, entra a <strong>Dispositivos Vinculados</strong>.</li>
+        <li>Haz click en <strong>Vincular un Dispositivo</strong>.</li>
+        <li>Escanea el código QR que aparece en pantalla.</li>
+      </ol>
+    </div>
+
+    <div class="qr">
+      <img id="imagen" alt="Código QR" onclick="regenerarImagen()" />
+      <p id="mensaje">Haz clic en la imagen para refrescarla</p>
+    </div>
+  </div>
+
+  <footer>
+    Developed by <a href="https://www.hirebot.co/" target="_blank" rel="noopener noreferrer">HireBot Inc</a>
+  </footer>
+</body>
+</html>

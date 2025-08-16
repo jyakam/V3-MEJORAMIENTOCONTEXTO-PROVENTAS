@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agente Conectado</title>
+  <style>
+    :root {
+      --fondo-general: #fff1f3;
+      --fondo-panel: #ffffff;
+      --color-principal: #323232;
+      --color-secundario: #787575;
+      --color-verde: #0ACB8C;
+      --borde-panel: #ccc;
+      --fuente: 'Helvetica Neue', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--fondo-general);
+      font-family: var(--fuente);
+      color: var(--color-principal);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding-top: 2rem;
+      box-sizing: border-box;
+    }
+
+    .header {
+      width: 100%;
+      max-width: 1080px;
+      display: flex;
+      align-items: flex-start;
+      padding-left: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .contenedor {
+      background-color: var(--fondo-panel);
+      border: 1px solid var(--borde-panel);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      padding: 2rem;
+      max-width: 1080px;
+      width: 90%;
+      min-height: 500px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+      gap: 2rem;
+      box-sizing: border-box;
+    }
+
+    .info {
+      flex: 1;
+    }
+
+    .info p {
+      font-size: 1rem;
+      margin-top: 2rem;
+      line-height: 1.6;
+      color: var(--color-principal);
+    }
+
+    .info p.negrita {
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      color: var(--color-verde);
+    }
+
+    .info ol {
+      font-size: 1rem;
+      line-height: 1.6;
+      margin-top: 1rem;
+      padding-left: 1.2rem;
+      color: var(--color-principal);
+    }
+
+    .info ol li {
+      margin-bottom: 0.8rem;
+    }
+
+    .imagen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .imagen img {
+      width: 300px;
+      max-width: 90%;
+      border-radius: 15px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 1rem;
+    }
+
+    .imagen h4 {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--color-verde); /* 🟢 Ahora "Conectado." será verde */
+  margin: 0;
+}
+
+    .imagen p.label {
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: var(--color-secundario);
+      margin: 0.5rem 0 0.2rem;
+    }
+
+    .imagen h3 {
+      font-size: 1.1rem;
+      color: var(--color-verde);
+      margin: 0;
+    }
+
+    footer {
+      margin-top: 2rem;
+      text-align: center;
+      font-size: 1rem;
+      color: #333;
+      padding-bottom: 1rem;
+    }
+
+    footer a {
+      color: var(--color-verde);
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      .contenedor {
+        flex-direction: column;
+        align-items: center;
+        padding: 1.5rem;
+      }
+
+      .info, .imagen {
+        width: 100%;
+        text-align: center;
+      }
+
+      .info ol {
+        padding-left: 0;
+        text-align: left;
+      }
+
+      .imagen img {
+        width: 250px;
+      }
+
+      .header {
+        justify-content: center;
+        padding-left: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img
+      src="https://static.wixstatic.com/media/0178a8_763e901ce9d84609a533ee13973d40da~mv2.png/v1/fill/w_184,h_67,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/HireBot%20Official%20Logo%20(Graph)%20(2).png"
+      width="100"
+      alt="Logo HireBot"
+    />
+  </div>
+
+  <div class="contenedor">
+    <div class="info">
+      <p class="negrita">¿Deseas desconectar a tu Agente de este WhatsApp?</p>
+      <p>Si no quieres que tu agente siga trabajando en este WhatsApp o deseas conectar otro número, sigue estos pasos:</p>
+      <ol>
+        <li>Ingresa a tu aplicación de WhatsApp desde tu smartphone</li>
+        <li>Haz click en el menú superior y luego en <strong>Dispositivos Vinculados</strong></li>
+        <li>Selecciona el dispositivo que está vinculado y luego presiona <strong>Eliminar</strong></li>
+      </ol>
+    </div>
+
+    <div class="imagen">
+      <img src="./icono.png" alt="Bot Conectado" />
+      <h4>Conectado.</h4>
+      <p class="label">WhatsApp Number:</p>
+      <h3>+##TELEFONO##</h3>
+    </div>
+  </div>
+
+  <footer>
+    Developed by <a href="https://www.hirebot.co/" target="_blank" rel="noopener noreferrer">HireBot Inc</a>
+  </footer>
+</body>
+</html>
