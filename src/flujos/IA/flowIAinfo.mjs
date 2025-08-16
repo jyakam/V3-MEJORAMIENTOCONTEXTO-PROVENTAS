@@ -248,6 +248,7 @@ async function esComprobanteDePagoIA(fileBuffer) {
 
 export const flowIAinfo = addKeyword(EVENTS.WELCOME)
   .addAction(async (ctx, tools) => {
+    await tools.state.update({ esPrimerMensaje: true }); // <-- AÑADIR ESTA LÍNEA
     // 🎙️ MICROFONO DE DIAGNÓSTICO 1 - INICIO DE NUEVA CONVERSACIÓN
     console.log('⚡️⚡️⚡️ [DIAGNÓSTICO] INICIANDO "WELCOME" PARA EL CLIENTE: ⚡️⚡️⚡️', ctx.from);
     const currentStateWelcome = { paso: tools.state.get('pasoFlujoActual'), secciones: tools.state.get('seccionesActivas') };
