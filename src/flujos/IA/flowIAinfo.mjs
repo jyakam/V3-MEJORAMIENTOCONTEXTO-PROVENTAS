@@ -29,6 +29,7 @@ import { verificarYActualizarContactoSiEsNecesario, detectarIntencionContactoIA 
 import { actualizarHistorialConversacion } from '../../funciones/helpers/historialConversacion.mjs';
 import { cicloMarcadoresIA } from '../../funciones/helpers/marcadoresIAHelper.mjs'
 import { SolicitarAyuda } from '../../APIs/OpenAi/funciones/solicitarAyuda.mjs';
+import { cargarContextoAnterior, inyectarContextoAlPrompt } from '../../funciones/helpers/contextoConversacionHelper.mjs'
 
 // --- VERSIÓN FINAL Y DEFINITIVA CON ANÁLISIS DE HISTORIAL ---
 /**
@@ -324,13 +325,18 @@ export const flowIAinfo = addKeyword(EVENTS.WELCOME)
       }
     }
 
-      // --- INICIO DE BLOQUE DE DEPURACIÓN DE FECHAS ---
+     // --- INICIO DE BLOQUE DE DEPURACIÓN DE FECHAS ---
 console.log('🐞 [DEBUG FECHAS] Verificando variables ANTES de llamar a ActualizarFechasContacto...');
 console.log('🐞 [DEBUG FECHAS] Valor de la variable "phone":', phone);
 console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
 // console.log('🐞 [DEBUG FECHAS] Objeto "contacto" a enviar:', JSON.stringify(contacto, null, 2));
 // --- FIN DE BLOQUE DE DEPURACIÓN DE FECHAS ---
     if (contacto) await ActualizarFechasContacto(contacto, phone)
+
+    // --- INICIO: Carga de Contexto Anterior (CAMINO ARCHIVOS) ---
+    const contextoAnterior = await cargarContextoAnterior(phone);
+    const promptConContexto = inyectarContextoAlPrompt(contextoAnterior);
+    // --- FIN: Carga de Contexto Anterior ---
 
     // ------ BLOQUE DE IA PARA DATOS DE CONTACTO: SIEMPRE SE EJECUTA ------
     const datos = {}
@@ -393,24 +399,26 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
         };
         
         console.log('✅ [FLUJO AUDIO/IMG] Llamando a EnviarIA con el prompt del sistema completo.');
-        const res = await EnviarIA(textoAdjunto, promptSistema, tools, estado);
+       const res = await EnviarIA(textoAdjunto, promptSistema + promptConContexto, tools, estado);
         
         await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, textoAdjunto);
         // --- FIN DE LA CORRECCIÓN ---
 
-    // --- CAMINO 2: EL MENSAJE ES TEXTO ---
-    } else {
-        console.log(`🔀 [FLUJO] Detectado tipo de mensaje: ${tipoMensajeActual}. Se procesará como texto.`);
-        AgruparMensaje(ctx, async (txt, ctx) => {
-            const phone = ctx.from.split('@')[0];
-            const tools = { ctx, flowDynamic, endFlow, gotoFlow, provider, state };
-            const textoFinalUsuario = txt;
-            const contacto = Cache.getContactoByTelefono(phone);
+   AgruparMensaje(ctx, async (txt, ctx) => {
+            const phone = ctx.from.split('@')[0];
+            const tools = { ctx, flowDynamic, endFlow, gotoFlow, provider, state };
+            const textoFinalUsuario = txt;
+            const contacto = Cache.getContactoByTelefono(phone);
 
-            actualizarHistorialConversacion(textoFinalUsuario, 'cliente', state);
-            if (ComprobrarListaNegra(ctx) || !BOT.ESTADO) return gotoFlow(idleFlow);
-            reset(ctx, gotoFlow, BOT.IDLE_TIME * 60);
-            Escribiendo(ctx);
+            // --- INICIO: Carga de Contexto Anterior (CAMINO TEXTO) ---
+            const contextoAnterior = await cargarContextoAnterior(phone);
+            const promptConContexto = inyectarContextoAlPrompt(contextoAnterior);
+            // --- FIN: Carga de Contexto Anterior ---
+
+            actualizarHistorialConversacion(textoFinalUsuario, 'cliente', state);
+            if (ComprobrarListaNegra(ctx) || !BOT.ESTADO) return gotoFlow(idleFlow);
+            reset(ctx, gotoFlow, BOT.IDLE_TIME * 60);
+            Escribiendo(ctx);
 
             const bloques = ARCHIVO.PROMPT_BLOQUES;
             const { esConsultaProductos, categoriaDetectada, esConsultaTestimonios } = await obtenerIntencionConsulta(textoFinalUsuario, state.get('ultimaConsulta') || '', state);
@@ -426,7 +434,7 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
             };
             
             if (!BOT.PRODUCTOS) {
-                const res = await EnviarIA(textoFinalUsuario, promptSistema, tools, estado);
+                const res = await EnviarIA(textoFinalUsuario, promptSistema + promptConContexto, tools, estado);
                 await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, textoFinalUsuario);
             } else {
                 if (!state.get('_productosFull')?.length) {
@@ -564,7 +572,7 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
             };
             
             if (!BOT.PRODUCTOS) {
-                const res = await EnviarIA(textoFinalUsuario, promptSistema, tools, estado);
+                const res = await EnviarIA(textoFinalUsuario, promptSistema + promptConContexto, tools, estado);
                 await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, textoFinalUsuario);
             } else {
                 if (!state.get('_productosFull')?.length) {
@@ -576,7 +584,7 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
                 if (productos.length) {
                     await state.update({ productosUltimaSugerencia: productos });
                 }
-                const res = await EnviarIA(textoFinalUsuario, promptSistema, { ...tools, promptExtra }, estado);
+                const res = await EnviarIA(textoFinalUsuario, promptSistema + promptConContexto, { ...tools, promptExtra }, estado);
                 await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, textoFinalUsuario);
             }
 
