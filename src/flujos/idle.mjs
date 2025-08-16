@@ -1,5 +1,6 @@
 import { addKeyword, EVENTS } from '@builderbot/bot';
 import { generarResumenConversacionGlobalIA } from '../funciones/helpers/generarResumenConversacion.mjs';
+import { generarResumenMejorado } from '../funciones/helpers/contextoConversacionHelper.mjs';
 import { ActualizarResumenUltimaConversacion } from '../funciones/helpers/contactosSheetHelper.mjs';
 import { getContactoByTelefono } from '../funciones/helpers/cacheContactos.mjs';
 // NUEVA LÍNEA: Importamos la función de pedidos que creamos
@@ -22,7 +23,7 @@ export const idleFlow = addKeyword(EVENTS.ACTION).addAction(
         ).join('\n');
 
         // 2. Llama a OpenAI para hacer el resumen global
-        const resumenGlobal = await generarResumenConversacionGlobalIA(textoHistorial, phone);
+        const resumenGlobal = await generarResumenMejorado(textoHistorial, phone);
 
         // 3. Guarda el resumen en AppSheet/Google Sheets
         const contacto = getContactoByTelefono(phone);
