@@ -457,6 +457,13 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
   })
 
  .addAction({ capture: true }, async (ctx, tools) => {
+    // --- INICIO: AJUSTE PARA EVITAR CONFLICTO ---
+    if (tools.state.get('esPrimerMensaje')) {
+        await tools.state.update({ esPrimerMensaje: false });
+        console.log('🚩 [CAPTURA] Omitiendo ejecución en primer mensaje para evitar conflicto.');
+        return;
+    }
+    // --- FIN: AJUSTE PARA EVITAR CONFLICTO ---
     // 🎙️ MICROFONO DE DIAGNÓSTICO 2 - INICIO DE MENSAJE DE CONTINUACIÓN
     console.log('⚡️⚡️⚡️ [DIAGNÓSTICO] INICIANDO "CAPTURE" PARA EL CLIENTE: ⚡️⚡️⚡️', ctx.from);
     const currentStateCapture = { paso: tools.state.get('pasoFlujoActual'), secciones: tools.state.get('seccionesActivas') };
