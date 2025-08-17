@@ -470,7 +470,7 @@ if (!respondedInWelcome) {
     // Nota: welcomeInitDone ya está en true por la línea anterior; lo dejamos igual
   });
   console.log('[WELCOME] No hubo respuesta en WELCOME (texto inicial). Cediendo a CAPTURE para procesar el MISMO mensaje.');
-  return tools.fallBack();        // ← cede el mismo input a CAPTURE
+  return tools.fallBack({ answer: ctx });  // ← Pasamos el ctx dentro de un objeto con la clave 'answer'
 }
 
 // Si WELCOME sí respondió (multimedia), deja constancia y termina.
