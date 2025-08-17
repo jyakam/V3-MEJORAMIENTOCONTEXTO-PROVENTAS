@@ -459,42 +459,10 @@ await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, sta
             await state.update({ productoDetectadoEnImagen: false, productoReconocidoPorIA: '' });
         });
     }
-    await state.update({ welcomeBlockHasRun: true, welcomeInitDone: true });
-console.log('[WELCOME] init done');
-      // 4. Decisión final: ¿ceder el MISMO mensaje a CAPTURE?
-const respondedInWelcome = state.get('welcomeMediaResponded') === true;
-
-if (!respondedInWelcome) {
-  // Caso típico: primer mensaje fue TEXTO. WELCOME NO respondió.
-  // Importante: limpia cualquier flag que pueda bloquear a CAPTURE.
-  await state.update({
-    welcomeBlockHasRun: undefined  // NO bloquees CAPTURE
-    // Nota: welcomeInitDone ya está en true por la línea anterior; lo dejamos igual
-  });
-  console.log('[WELCOME] No hubo respuesta en WELCOME (texto inicial). Cediendo a CAPTURE para procesar el MISMO mensaje.');
-  return tools.fallBack({ answer: ctx });  // ← Pasamos el ctx dentro de un objeto con la clave 'answer'
-}
-
-// Si WELCOME sí respondió (multimedia), deja constancia y termina.
-// (No hacemos fallBack aquí para evitar respuesta duplicada)
-console.log('[WELCOME] Respuesta enviada desde WELCOME (multimedia). No cedemos para evitar duplicado.');
-  })
+await state.update({ welcomeBlockHasRun: true, welcomeInitDone: true });
+    console.log('[WELCOME] Finalizando bloque WELCOME.');
 
  .addAction({ capture: true }, async (ctx, tools) => {
- // --- INICIO: NUEVA REGLA DE ORDEN INTELIGENTE ---
-if (tools.state.get('welcomeMediaResponded')) {
-    // WELCOME respondió a un archivo multimedia, así que CAPTURE debe ceder el paso.
-    console.log('[CAPTURE] fallBack: welcomeMediaResponded === true. Cediendo el paso.');
-    await tools.state.update({ welcomeMediaResponded: false, welcomeInitDone: false, welcomeBlockHasRun: undefined });
-    return tools.fallBack();
-}
-
-if (tools.state.get('welcomeInitDone')) {
-    // WELCOME solo inicializó (ej. en un mensaje de texto), así que CAPTURE debe continuar.
-    console.log('[CAPTURE] continue: welcomeInitDone === true. Procesando mensaje.');
-    await tools.state.update({ welcomeInitDone: false, welcomeBlockHasRun: undefined });
-}
-// --- FIN: NUEVA REGLA DE ORDEN INTELIGENTE ---
      
      // 🎙️ MICROFONO DE DIAGNÓSTICO 2 - INICIO DE MENSAJE DE CONTINUACIÓN
     console.log('⚡️⚡️⚡️ [DIAGNÓSTICO] INICIANDO "CAPTURE" PARA EL CLIENTE: ⚡️⚡️⚡️', ctx.from);
