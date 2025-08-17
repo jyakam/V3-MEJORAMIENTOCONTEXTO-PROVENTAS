@@ -436,7 +436,7 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
             if (!BOT.PRODUCTOS) {
                 const res = await EnviarIA(textoFinalUsuario, promptSistema + promptConContexto, tools, estado);
                 await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, textoFinalUsuario);
-            } else {
+                 } else {
                 if (!state.get('_productosFull')?.length) {
                     await cargarProductosAlState(state);
                     await state.update({ __productosCargados: true });
@@ -446,17 +446,26 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
                 if (productos.length) {
                     await state.update({ productosUltimaSugerencia: productos });
                 }
-                const res = await EnviarIA(textoFinalUsuario, promptSistema, { ...tools, promptExtra }, estado);
+                const res = await EnviarIA(textoFinalUsuario, promptSistema + promptConContexto, { ...tools, promptExtra }, estado);
                 await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, textoFinalUsuario);
             }
 
             await state.update({ productoDetectadoEnImagen: false, productoReconocidoPorIA: '' });
         });
     }
+    await state.update({ welcomeBlockHasRun: true }); // <-- LA LÍNEA AHORA ESTÁ EN SU LUGAR CORRECTO
   })
 
  .addAction({ capture: true }, async (ctx, tools) => {
-    // 🎙️ MICROFONO DE DIAGNÓSTICO 2 - INICIO DE MENSAJE DE CONTINUACIÓN
+   // --- INICIO: REGLA DE ORDEN PARA EL PRIMER MENSAJE ---
+if (tools.state.get('welcomeBlockHasRun')) {
+    await tools.state.update({ welcomeBlockHasRun: undefined }); // Limpiamos la señal
+    console.log('🚩 [CAPTURE] WELCOME ya atendió. Cediendo el paso y esperando siguiente mensaje.');
+    return tools.fallBack();
+}
+// --- FIN: REGLA DE ORDEN PARA EL PRIMER MENSAJE ---
+     
+     // 🎙️ MICROFONO DE DIAGNÓSTICO 2 - INICIO DE MENSAJE DE CONTINUACIÓN
     console.log('⚡️⚡️⚡️ [DIAGNÓSTICO] INICIANDO "CAPTURE" PARA EL CLIENTE: ⚡️⚡️⚡️', ctx.from);
     const currentStateCapture = { paso: tools.state.get('pasoFlujoActual'), secciones: tools.state.get('seccionesActivas') };
     console.log('      [DIAGNÓSTICO] Estado ANTES de procesar:', JSON.stringify(currentStateCapture));
