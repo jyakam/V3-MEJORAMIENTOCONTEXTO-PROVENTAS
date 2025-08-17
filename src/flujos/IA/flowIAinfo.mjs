@@ -403,26 +403,28 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
         console.log('✅ [FLUJO AUDIO/IMG] Llamando a EnviarIA con el prompt del sistema completo.');
        const res = await EnviarIA(textoAdjunto, promptSistema + promptConContexto, tools, estado);
         
-        await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, textoAdjunto);
+await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, textoAdjunto);
         await state.update({ welcomeMediaResponded: true });
-console.log('[WELCOME] multimedia responded');
+        console.log('[WELCOME] multimedia responded');
         // --- FIN DE LA CORRECCIÓN ---
 
-   AgruparMensaje(ctx, async (txt, ctx) => {
-            const phone = ctx.from.split('@')[0];
-            const tools = { ctx, flowDynamic, endFlow, gotoFlow, provider, state };
-            const textoFinalUsuario = txt;
-            const contacto = Cache.getContactoByTelefono(phone);
+    } else {
+        // --- CAMINO 2: EL MENSAJE ES TEXTO ---
+        AgruparMensaje(ctx, async (txt, ctx) => {
+            const phone = ctx.from.split('@')[0];
+            const tools = { ctx, flowDynamic, endFlow, gotoFlow, provider, state };
+            const textoFinalUsuario = txt;
+            const contacto = Cache.getContactoByTelefono(phone);
 
-            // --- INICIO: Carga de Contexto Anterior (CAMINO TEXTO) ---
-            const contextoAnterior = await cargarContextoAnterior(phone);
-            const promptConContexto = inyectarContextoAlPrompt(contextoAnterior);
-            // --- FIN: Carga de Contexto Anterior ---
+            // --- INICIO: Carga de Contexto Anterior (CAMINO TEXTO) ---
+            const contextoAnterior = await cargarContextoAnterior(phone);
+            const promptConContexto = inyectarContextoAlPrompt(contextoAnterior);
+            // --- FIN: Carga de Contexto Anterior ---
 
-            actualizarHistorialConversacion(textoFinalUsuario, 'cliente', state);
-            if (ComprobrarListaNegra(ctx) || !BOT.ESTADO) return gotoFlow(idleFlow);
-            reset(ctx, gotoFlow, BOT.IDLE_TIME * 60);
-            Escribiendo(ctx);
+            actualizarHistorialConversacion(textoFinalUsuario, 'cliente', state);
+            if (ComprobrarListaNegra(ctx) || !BOT.ESTADO) return gotoFlow(idleFlow);
+            reset(ctx, gotoFlow, BOT.IDLE_TIME * 60);
+            Escribiendo(ctx);
 
             const bloques = ARCHIVO.PROMPT_BLOQUES;
             const { esConsultaProductos, categoriaDetectada, esConsultaTestimonios } = await obtenerIntencionConsulta(textoFinalUsuario, state.get('ultimaConsulta') || '', state);
@@ -440,7 +442,7 @@ console.log('[WELCOME] multimedia responded');
             if (!BOT.PRODUCTOS) {
                 const res = await EnviarIA(textoFinalUsuario, promptSistema + promptConContexto, tools, estado);
                 await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, textoFinalUsuario);
-                 } else {
+            } else {
                 if (!state.get('_productosFull')?.length) {
                     await cargarProductosAlState(state);
                     await state.update({ __productosCargados: true });
