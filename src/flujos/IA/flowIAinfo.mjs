@@ -453,14 +453,15 @@ await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, sta
                     await state.update({ productosUltimaSugerencia: productos });
                 }
                 const res = await EnviarIA(textoFinalUsuario, promptSistema + promptConContexto, { ...tools, promptExtra }, estado);
-                await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, textoFinalUsuario);
+               await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, textoFinalUsuario);
             }
 
             await state.update({ productoDetectadoEnImagen: false, productoReconocidoPorIA: '' });
         });
     }
-await state.update({ welcomeBlockHasRun: true, welcomeInitDone: true });
+    await state.update({ welcomeBlockHasRun: true, welcomeInitDone: true });
     console.log('[WELCOME] Finalizando bloque WELCOME.');
+  })
 
  .addAction({ capture: true }, async (ctx, tools) => {
      
