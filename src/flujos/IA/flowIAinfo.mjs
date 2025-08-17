@@ -462,19 +462,18 @@ console.log('[WELCOME] init done');
   })
 
  .addAction({ capture: true }, async (ctx, tools) => {
-  // --- INICIO: NUEVA REGLA DE ORDEN INTELIGENTE ---
-const { state } = tools;
-if (state.get('welcomeMediaResponded')) {
+ // --- INICIO: NUEVA REGLA DE ORDEN INTELIGENTE ---
+if (tools.state.get('welcomeMediaResponded')) {
     // WELCOME respondió a un archivo multimedia, así que CAPTURE debe ceder el paso.
     console.log('[CAPTURE] fallBack: welcomeMediaResponded === true. Cediendo el paso.');
-    await state.update({ welcomeMediaResponded: false, welcomeInitDone: false, welcomeBlockHasRun: undefined });
+    await tools.state.update({ welcomeMediaResponded: false, welcomeInitDone: false, welcomeBlockHasRun: undefined });
     return tools.fallBack();
 }
 
-if (state.get('welcomeInitDone')) {
+if (tools.state.get('welcomeInitDone')) {
     // WELCOME solo inicializó (ej. en un mensaje de texto), así que CAPTURE debe continuar.
     console.log('[CAPTURE] continue: welcomeInitDone === true. Procesando mensaje.');
-    await state.update({ welcomeInitDone: false, welcomeBlockHasRun: undefined });
+    await tools.state.update({ welcomeInitDone: false, welcomeBlockHasRun: undefined });
 }
 // --- FIN: NUEVA REGLA DE ORDEN INTELIGENTE ---
      
