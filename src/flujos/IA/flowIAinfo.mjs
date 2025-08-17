@@ -459,6 +459,23 @@ console.log('[WELCOME] multimedia responded');
     }
     await state.update({ welcomeBlockHasRun: true, welcomeInitDone: true });
 console.log('[WELCOME] init done');
+      // 4. Decisión final: ¿ceder el MISMO mensaje a CAPTURE?
+const respondedInWelcome = state.get('welcomeMediaResponded') === true;
+
+if (!respondedInWelcome) {
+  // Caso típico: primer mensaje fue TEXTO. WELCOME NO respondió.
+  // Importante: limpia cualquier flag que pueda bloquear a CAPTURE.
+  await state.update({
+    welcomeBlockHasRun: undefined  // NO bloquees CAPTURE
+    // Nota: welcomeInitDone ya está en true por la línea anterior; lo dejamos igual
+  });
+  console.log('[WELCOME] No hubo respuesta en WELCOME (texto inicial). Cediendo a CAPTURE para procesar el MISMO mensaje.');
+  return tools.fallBack();        // ← cede el mismo input a CAPTURE
+}
+
+// Si WELCOME sí respondió (multimedia), deja constancia y termina.
+// (No hacemos fallBack aquí para evitar respuesta duplicada)
+console.log('[WELCOME] Respuesta enviada desde WELCOME (multimedia). No cedemos para evitar duplicado.');
   })
 
  .addAction({ capture: true }, async (ctx, tools) => {
