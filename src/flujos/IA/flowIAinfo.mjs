@@ -256,6 +256,8 @@ export const flowIAinfo = addKeyword(EVENTS.WELCOME)
     const { flowDynamic, endFlow, gotoFlow, provider, state } = tools;
     const phone = ctx.from.split('@')[0];
     const message = ctx.body.trim();
+    await DetectarArchivos(ctx, state); // Detección temprana de tipo de mensaje
+console.log(`[WELCOME] init + detectarArchivos. Tipo: ${state.get('tipoMensaje')}`);
 
     // ==== INICIALIZA SOLO EN EL PRIMER MENSAJE ====
     // Si no hay pasoFlujoActual o seccionesActivas, inicializa en PASO 1
@@ -402,6 +404,8 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
        const res = await EnviarIA(textoAdjunto, promptSistema + promptConContexto, tools, estado);
         
         await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, textoAdjunto);
+        await state.update({ welcomeMediaResponded: true });
+console.log('[WELCOME] multimedia responded');
         // --- FIN DE LA CORRECCIÓN ---
 
    AgruparMensaje(ctx, async (txt, ctx) => {
@@ -453,17 +457,26 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
             await state.update({ productoDetectadoEnImagen: false, productoReconocidoPorIA: '' });
         });
     }
-    await state.update({ welcomeBlockHasRun: true }); // <-- LA LÍNEA AHORA ESTÁ EN SU LUGAR CORRECTO
+    await state.update({ welcomeBlockHasRun: true, welcomeInitDone: true });
+console.log('[WELCOME] init done');
   })
 
  .addAction({ capture: true }, async (ctx, tools) => {
-   // --- INICIO: REGLA DE ORDEN PARA EL PRIMER MENSAJE ---
-if (tools.state.get('welcomeBlockHasRun')) {
-    await tools.state.update({ welcomeBlockHasRun: undefined }); // Limpiamos la señal
-    console.log('🚩 [CAPTURE] WELCOME ya atendió. Cediendo el paso y esperando siguiente mensaje.');
+  // --- INICIO: NUEVA REGLA DE ORDEN INTELIGENTE ---
+const { state } = tools;
+if (state.get('welcomeMediaResponded')) {
+    // WELCOME respondió a un archivo multimedia, así que CAPTURE debe ceder el paso.
+    console.log('[CAPTURE] fallBack: welcomeMediaResponded === true. Cediendo el paso.');
+    await state.update({ welcomeMediaResponded: false, welcomeInitDone: false, welcomeBlockHasRun: undefined });
     return tools.fallBack();
 }
-// --- FIN: REGLA DE ORDEN PARA EL PRIMER MENSAJE ---
+
+if (state.get('welcomeInitDone')) {
+    // WELCOME solo inicializó (ej. en un mensaje de texto), así que CAPTURE debe continuar.
+    console.log('[CAPTURE] continue: welcomeInitDone === true. Procesando mensaje.');
+    await state.update({ welcomeInitDone: false, welcomeBlockHasRun: undefined });
+}
+// --- FIN: NUEVA REGLA DE ORDEN INTELIGENTE ---
      
      // 🎙️ MICROFONO DE DIAGNÓSTICO 2 - INICIO DE MENSAJE DE CONTINUACIÓN
     console.log('⚡️⚡️⚡️ [DIAGNÓSTICO] INICIANDO "CAPTURE" PARA EL CLIENTE: ⚡️⚡️⚡️', ctx.from);
