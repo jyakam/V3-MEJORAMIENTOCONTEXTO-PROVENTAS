@@ -35,6 +35,16 @@ async function postTableWithRetrySafe(config, table, data, props, retries = 3, d
       }
       return resp
     } catch (err) {
+      // --- INICIO DE LA CORRECCIÓN ---
+      // Si el error es específicamente por una respuesta vacía que no se puede parsear,
+      // lo tratamos como un éxito y continuamos.
+      if (err instanceof SyntaxError && err.message.includes('Unexpected end of JSON input')) {
+        console.log(`✅ [HELPER] Se detectó una respuesta vacía de AppSheet (probable éxito 204). Se manejará como éxito.`);
+        return []; // Devolvemos un array vacío, simulando una respuesta exitosa sin contenido.
+      }
+      // --- FIN DE LA CORRECCIÓN ---
+
+      // Para cualquier otro tipo de error, reintentamos o fallamos como antes.
       if (i === retries - 1) throw err
       await new Promise(r => setTimeout(r, delay))
     }
