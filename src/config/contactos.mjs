@@ -29,14 +29,15 @@ const COLUMNAS_VALIDAS = [
   'CIUDAD',
   'PAIS',
   'ESTADO_DEPARTAMENTO',
-  'CODIGO_POSTAL',               // ⬅️ nueva
+  'CODIGO_POSTAL',
   'ETIQUETA',
   'TIPO_DE_CLIENTE',
-  'FECHA_DE_CUMPLEANOS',         // ⬅️ nueva
+  'FECHA_DE_CUMPLEANOS',
   'RESUMEN_ULTIMA_CONVERSACION',
+  'RESUMEN_2', // <-- AÑADIDO
+  'RESUMEN_3', // <-- AÑADIDO
   'NUMERO_DE_TELEFONO_SECUNDARIO'
 ]
-
 function aIso(entrada) {
   if (!entrada || typeof entrada !== 'string') return entrada
   const s = entrada.trim()
