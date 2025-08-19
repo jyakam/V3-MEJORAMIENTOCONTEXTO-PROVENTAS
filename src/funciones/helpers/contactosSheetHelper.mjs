@@ -23,32 +23,29 @@ function aIso(entrada) {
   return entrada
 }
 
-// Wrapper local para que la respuesta vacía de AppSheet no rompa la ejecución
 async function postTableWithRetrySafe(config, table, data, props, retries = 3, delay = 1000) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      // usamos la misma firma que postTable, pero tolerante a cuerpo vacío / string
-      const resp = await postTable(config, table, data, props)
-      if (!resp) return [] // AppSheet a veces responde sin cuerpo (204)
-      if (typeof resp === 'string') {
-        try { return JSON.parse(resp) } catch { return [] }
-      }
-      return resp
-    } catch (err) {
-      // --- INICIO DE LA CORRECCIÓN ---
-      // Si el error es específicamente por una respuesta vacía que no se puede parsear,
-      // lo tratamos como un éxito y continuamos.
-      if (err instanceof SyntaxError && err.message.includes('Unexpected end of JSON input')) {
-        console.log(`✅ [HELPER] Se detectó una respuesta vacía de AppSheet (probable éxito 204). Se manejará como éxito.`);
-        return []; // Devolvemos un array vacío, simulando una respuesta exitosa sin contenido.
-      }
-      // --- FIN DE LA CORRECCIÓN ---
+    
+    // --- AGREGA ESTA LÍNEA AQUÍ PARA DEPURAR ---
+    console.log('📦 [DEBUG RESUMEN] Datos enviados a AppSheet:', JSON.stringify(data, null, 2));
+    // --- FIN DE LA LÍNEA A AGREGAR ---
 
-      // Para cualquier otro tipo de error, reintentamos o fallamos como antes.
-      if (i === retries - 1) throw err
-      await new Promise(r => setTimeout(r, delay))
+    for (let i = 0; i < retries; i++) {
+        try {
+            const resp = await postTable(config, table, data, props)
+            if (!resp) return []
+            if (typeof resp === 'string') {
+                try { return JSON.parse(resp) } catch { return [] }
+            }
+            return resp
+        } catch (err) {
+            if (err instanceof SyntaxError && err.message.includes('Unexpected end of JSON input')) {
+                console.log(`✅ [HELPER] Se detectó una respuesta vacía de AppSheet (probable éxito 204). Se manejará como éxito.`);
+                return [];
+            }
+            if (i === retries - 1) throw err
+            await new Promise(r => setTimeout(r, delay))
+        }
     }
-  }
 }
 
 function limpiarRowContacto(row, action = 'Add') { // Le añadimos el parámetro "action"
