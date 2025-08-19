@@ -23,26 +23,30 @@ function aIso(entrada) {
   return entrada
 }
 
+// NUEVO BLOQUE DE CÓDIGO
 async function postTableWithRetrySafe(config, table, data, props, retries = 3, delay = 1000) {
-    
-    // --- AGREGA ESTA LÍNEA AQUÍ PARA DEPURAR ---
+    // Mantenemos tu log de depuración, es muy útil.
     console.log('📦 [DEBUG RESUMEN] Datos enviados a AppSheet:', JSON.stringify(data, null, 2));
-    // --- FIN DE LA LÍNEA A AGREGAR ---
 
     for (let i = 0; i < retries; i++) {
         try {
             const resp = await postTable(config, table, data, props)
-            if (!resp) return []
+            // La lógica original de la versión funcional era más simple y robusta.
+            if (!resp) return [] // Si AppSheet responde sin cuerpo (éxito 204), es un éxito.
             if (typeof resp === 'string') {
+                // Si responde con texto, intentamos convertirlo a JSON. Si falla, es un éxito vacío.
                 try { return JSON.parse(resp) } catch { return [] }
             }
             return resp
         } catch (err) {
-            if (err instanceof SyntaxError && err.message.includes('Unexpected end of JSON input')) {
-                console.log(`✅ [HELPER] Se detectó una respuesta vacía de AppSheet (probable éxito 204). Se manejará como éxito.`);
-                return [];
+            // Si hay CUALQUIER error (incluido el SyntaxError), lo reintentamos.
+            // Si después de todos los reintentos sigue fallando, lanzamos el error para que
+            // la función que llamó se entere del problema. Ya no lo ocultamos.
+            console.error(` intento ${i + 1} de ${retries} falló.`);
+            if (i === retries - 1) {
+                console.error(`❌ [HELPER] Fallo definitivo al contactar AppSheet después de ${retries} intentos.`);
+                throw err;
             }
-            if (i === retries - 1) throw err
             await new Promise(r => setTimeout(r, delay))
         }
     }
@@ -82,6 +86,7 @@ function limpiarRowContacto(row, action = 'Add') { // Le añadimos el parámetro
 const PROPIEDADES = { Action: 'Edit', UserSettings: { DETECTAR: false } }
 const HOJA_CONTACTOS = process.env.PAG_CONTACTOS
 
+// NUEVO BLOQUE CORREGIDO
 export async function ActualizarFechasContacto(contacto, phone) {
   const hoy = ObtenerFechaActual()
 
@@ -106,7 +111,7 @@ export async function ActualizarFechasContacto(contacto, phone) {
     // ====== INICIO DE LA CORRECCIÓN ======
     // Movemos este bloque aquí arriba para que la variable exista antes de usarla.
     const propsDinamicas = { UserSettings: { DETECTAR: false } }
-    // ====== FIN DE LA CORRECCIÓN ======
+    // ====== FIN DE la CORRECCIÓN ======
 
     // Sanitizar/normalizar antes de enviar (fechas a ISO, sin _RowNumber, etc.)
     const row = limpiarRowContacto(datos, propsDinamicas.Action)
@@ -135,13 +140,11 @@ export async function ActualizarFechasContacto(contacto, phone) {
     } else if (err?.stack) {
       console.log('[DEBUG FECHAS] ERROR STACK:', err.stack)
     }
-
-    // Consistencia local aunque falle AppSheet
-    actualizarContactoEnCache({ ...contactoCompleto, ...datos })
-    console.log(`⚠️ Cache actualizada localmente para ${phone} pese a error en AppSheet`)
+    // LAS LÍNEAS PROBLEMÁTICAS HAN SIDO ELIMINADAS DE AQUÍ
   }
 }
 
+// NUEVO BLOQUE CORREGIDO
 export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
   console.log(`🧠 Intentando guardar resumen para ${phone}...`)
 
@@ -191,12 +194,12 @@ export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
     actualizarContactoEnCache(datosParaGuardar)
   } catch (err) {
     console.log(`❌ Error guardando historial de resúmenes para ${phone} via queue:`, err?.message)
-    // Guardamos en caché igualmente para no perder la información localmente
-    actualizarContactoEnCache(datosParaGuardar)
-    console.log(`⚠️ Cache actualizada localmente para ${phone} pese a error en AppSheet`)
+    // LAS LÍNEAS PROBLEMÁTICAS HAN SIDO ELIMINADAS DE AQUÍ.
+    // Ya no se actualiza la caché si hay un error de guardado.
   }
 }
 
+// NUEVO BLOQUE CORREGIDO
 // Esta es la nueva función centralizada para guardar cualquier tipo de actualización de contacto.
 export async function GuardarContacto(datosContacto) {
   const phone = datosContacto.TELEFONO;
@@ -226,7 +229,7 @@ export async function GuardarContacto(datosContacto) {
     actualizarContactoEnCache(row);
   } catch (err) {
     console.error(`❌ [GuardarContacto] Error fatal en la tarea para ${phone}:`, err.message);
-    // Opcional: actualizar la caché incluso si falla, para no perder los datos localmente
-    actualizarContactoEnCache(datosContacto);
+    // LA LÍNEA PROBLEMÁTICA HA SIDO ELIMINADA DE AQUÍ.
+    // Ya no se actualiza la caché si hay un error de guardado.
   }
 }
