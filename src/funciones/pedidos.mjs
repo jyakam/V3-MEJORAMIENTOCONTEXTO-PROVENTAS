@@ -9,12 +9,12 @@ import {
 import { getContactoByTelefono } from './helpers/cacheContactos.mjs';
 
 // Lista de todas las columnas que tu tabla PEDIDOS espera recibir.
-// Esto asegura que no enviemos campos extra o basura a la API.
+// ✅ BLOQUE 1: LISTA DE COLUMNAS DE LA CABECERA (CORREGIDO)
 const COLUMNAS_VALIDAS_PEDIDO = [
     'ID_PEDIDO', 'FECHA_PEDIDO', 'HORA_PEDIDO', 'TELEFONO_REGISTRADO',
     'NOMBRE_COMPLETO_CLIENTE', 'DIRECCION', 'DIRECCION_2', 'CIUDAD',
     'DEPARTAMENTO_REGION_ESTADO', 'CODIGO_POSTAL', 'PAIS', 'EMAIL', 'TELEFONO',
-    'SUBTOTAL', 'VALOR_ENVIO', 'IMPUESTOS', 'DESCUENTOS', 'VALOR__TOTAL',
+    'SUBTOTAL', 'VALOR_ENVIO', 'IMPUESTOS', 'DESCUENTOS', 'VALOR_TOTAL',
     'FORMA_PAGO', 'ESTADO_PAGO', 'SALDO_PENDIENTE', 'TRANSPORTADORA',
     'GUIA_TRANSPORTE', 'ESTADO_PEDIDO', 'NOTAS_PEDIDO', 'NUMERO_CONSECUTIVO',
     'NUMERO_PEDIDO_VISIBLE'
@@ -54,58 +54,57 @@ export const crearPedidoDesdeState = async (state, ctx) => {
         const fecha = `${ahora.getDate().toString().padStart(2, '0')}/${(ahora.getMonth() + 1).toString().padStart(2, '0')}/${ahora.getFullYear()}`;
         const hora = `${ahora.getHours().toString().padStart(2, '0')}:${ahora.getMinutes().toString().padStart(2, '0')}:${ahora.getSeconds().toString().padStart(2, '0')}`;
 
-       // --- PASO 2: ARMAR EL PAQUETE DE DATOS COMPLETO (VERSIÓN CORREGIDA) ---
-        const datosCabecera = {
-            ID_PEDIDO: idUnico,
-            FECHA_PEDIDO: fecha,
-            HORA_PEDIDO: hora,
-            TELEFONO_REGISTRADO: ctx.from,
-            NOMBRE_COMPLETO_CLIENTE: contacto.NOMBRE || ctx.pushName || '',
-            DIRECCION: contacto.DIRECCION || '',
-            DIRECCION_2: contacto.DIRECCION_2 || '',
-            CIUDAD: contacto.CIUDAD || '',
-            DEPARTAMENTO_REGION_ESTADO: contacto.ESTADO_DEPARTAMENTO || '',
-            CODIGO_POSTAL: contacto.CODIGO_POSTAL || '',
-            PAIS: contacto.PAIS || 'Colombia',
-            EMAIL: contacto.EMAIL || '',
-            TELEFONO: contacto.TELEFONO || ctx.from,
-            SUBTOTAL: subtotal,
-            VALOR_ENVIO: 0,
-            IMPUESTOS: 0,
-            DESCUENTOS: 0,
-            VALOR_TOTAL: valorTotal, // CORREGIDO: Un solo guion bajo
-            FORMA_PAGO: state.get('forma_pago') || 'Por definir',
-ESTADO_PAGO: state.get('estado_pago') || 'Pendiente de Pago',
-            SALDO_PENDIENTE: valorTotal,
-            TRANSPORTADORA: '',
-            GUIA_TRANSPORTE: '',
-            ESTADO_PEDIDO: 'Nuevo',
-            NOTAS_PEDIDO: '',
-            NUMERO_CONSECUTIVO: numeroConsecutivo,
-            NUMERO_PEDIDO_VISIBLE: numeroPedidoVisible,
-            // AÑADIDAS: Las columnas que faltaban
-            COLORES: '',
-            TALLAS: '',
-            FORMA_ENVIO: '',
-            ORDEN_ESTADO: '',
-        };
+      // ✅ BLOQUE 2: OBJETO DE LA CABECERA DEL PEDIDO (CORREGIDO)
+const datosCabecera = {
+    ID_PEDIDO: idUnico,
+    FECHA_PEDIDO: fecha,
+    HORA_PEDIDO: hora,
+    TELEFONO_REGISTRADO: ctx.from,
+    NOMBRE_COMPLETO_CLIENTE: contacto.NOMBRE || ctx.pushName || '',
+    DIRECCION: contacto.DIRECCION || '',
+    DIRECCION_2: contacto.DIRECCION_2 || '',
+    CIUDAD: contacto.CIUDAD || '',
+    DEPARTAMENTO_REGION_ESTADO: contacto.ESTADO_DEPARTAMENTO || '',
+    CODIGO_POSTAL: contacto.CODIGO_POSTAL || '',
+    PAIS: contacto.PAIS || 'Colombia',
+    EMAIL: contacto.EMAIL || '',
+    TELEFONO: contacto.TELEFONO || ctx.from,
+    SUBTOTAL: subtotal,
+    VALOR_ENVIO: 0,
+    IMPUESTOS: 0,
+    DESCUENTOS: 0,
+    VALOR_TOTAL: valorTotal,
+    FORMA_PAGO: state.get('forma_pago') || 'Por definir',
+    ESTADO_PAGO: state.get('estado_pago') || 'Pendiente de Pago',
+    SALDO_PENDIENTE: valorTotal,
+    TRANSPORTADORA: '',
+    GUIA_TRANSPORTE: '',
+    ESTADO_PEDIDO: 'Nuevo',
+    NOTAS_PEDIDO: '',
+    NUMERO_CONSECUTIVO: numeroConsecutivo,
+    NUMERO_PEDIDO_VISIBLE: numeroPedidoVisible,
+};
         
-        const datosDetalles = carrito.map((item, index) => ({
-            ID_DETALLE: `${idUnico}-DET-${index + 1}`,
-            ID_PEDIDO: idUnico,
-            SKU: item.SKU || 'N/A',
-            NOMBRE_PRODUCTO: item.NOMBRE_PRODUCTO,
-            TIPO_PRODUCTO: 'PRODUCTO',
-            OPCION_1_COLOR: item.OPCION_1_COLOR || '',
-            OPCION_2_TALLA: item.OPCION_2_TALLA || '',
-            OPCION_3_TAMANO: item.OPCION_3_TAMANO || '',
-            OPCION_4_SABOR: item.OPCION_4_SABOR || '',
-            CANTIDAD: item.CANTIDAD,
-            PRECIO_UNITARIO: item.PRECIO_UNITARIO,
-            TOTAL_PRODUCTOS: item.CANTIDAD * item.PRECIO_UNITARIO,
-            CATEGORIA: item.CATEGORIA || 'General',
-            NOTA_PRODUCTO: item.NOTA_PRODUCTO || '',
-        }));
+        // ✅ BLOQUE 3: OBJETO DE LOS DETALLES DEL PEDIDO (CORREGIDO)
+const datosDetalles = carrito.map((item, index) => ({
+    ID_DETALLE: `${idUnico}-DET-${index + 1}`,
+    ID_PEDIDO: idUnico,
+    SKU: item.SKU || 'N/A',
+    NOMBRE_PRODUCTO: item.NOMBRE_PRODUCTO,
+    TIPO_PRODUCTO: 'PRODUCTO',
+    OPCION_1_COLOR: item.OPCION_1_COLOR || '',
+    OPCION_2_TALLA: item.OPCION_2_TALLA || '',
+    OPCION_3_TAMANO: item.OPCION_3_TAMANO || '',
+    OPCION_4_SABOR: item.OPCION_4_SABOR || '',
+    CANTIDAD: item.CANTIDAD,
+    PRECIO_UNITARIO: item.PRECIO_UNITARIO,
+    TOTAL_PRODUCTOS: item.CANTIDAD * item.PRECIO_UNITARIO,
+    CATEGORIA: item.CATEGORIA || 'General',
+    NOTA_PRODUCTO: item.NOTA_PRODUCTO || '',
+    // --- Columnas añadidas que pertenecen a los detalles ---
+    FORMA_ENVIO: state.get('forma_envio') || 'Por definir',
+    ORDEN_ESTADO: 'Nuevo',
+}));
 
         console.log('✨ [DEBUG PEDIDO] Paquete de CABECERA (Completo) a enviar:', JSON.stringify(datosCabecera, null, 2));
         console.log('📄 [DEBUG PEDIDO] Paquete de DETALLES a enviar:', JSON.stringify(datosDetalles, null, 2));
