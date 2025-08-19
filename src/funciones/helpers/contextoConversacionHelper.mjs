@@ -100,40 +100,13 @@ export function inyectarContextoAlPrompt(contexto) {
  * @param {string} phone - El número de teléfono del cliente.
  * @returns {string} El resumen generado por la IA con fecha.
  */
+// BLOQUE DE CÓDIGO TEMPORAL PARA DIAGNÓSTICO
 export async function generarResumenMejorado(historial, phone) {
-  console.log(`🧠 [CONTEXTO] Generando resumen mejorado para ${phone}...`)
-  const contacto = getContactoByTelefono(phone) || {}
-
-  const prompt = `
-    Eres un analista de CRM experto. Tu tarea es crear un resumen detallado y estructurado de la siguiente conversación de WhatsApp.
-
-    **Historial de la Conversación:**
-    ---
-    ${historial}
-    ---
-
-    **Instrucciones para el Resumen:**
-    1.  **Motivo Principal:** ¿Cuál fue la razón principal del contacto?
-    2.  **Productos/Servicios Discutidos:** Menciona los productos o servicios de los que se hablaron.
-    3.  **Decisiones Clave:** ¿El cliente tomó alguna decisión? (Comprar, pensar, etc.).
-    4.  **Acciones Pendientes:** ¿Quedó alguna tarea pendiente para el negocio o el cliente?
-    5.  **Sentimiento General:** Describe brevemente el tono del cliente.
-
-    **Formato de Salida:**
-    Proporciona el resumen en un formato claro y conciso, usando viñetas. NO uses formato JSON.
-  `.trim()
-
-  try {
-    const respuestaIA = await EnviarTextoOpenAI(prompt, `resumen-${phone}`, 'INFO', {})
-    if (respuestaIA && respuestaIA.respuesta) {
-      console.log(`- [CONTEXTO] Resumen mejorado generado exitosamente.`)
-      // Añadimos la fecha actual al resumen
-      const fecha = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      return `**[Resumen del ${fecha}]:**\n${respuestaIA.respuesta}`;
-    }
-    throw new Error('La IA no devolvió un resumen válido.')
-  } catch (error) {
-    console.error(`❌ [CONTEXTO] Error al generar resumen mejorado para ${phone}:`, error)
-    return `**[Resumen del ${new Date().toLocaleDateString('es-CO')}]:**\nError al generar el resumen de la conversación.`
-  }
+  console.log(`🚧 [PRUEBA DE DIAGNÓSTICO] Generando resumen de prueba simple para ${phone}...`)
+  
+  // En lugar de llamar a la IA, devolvemos un texto simple y plano.
+  const resumenDePrueba = "Resumen de prueba exitoso. No se encontraron errores."
+  
+  console.log(`- [PRUEBA DE DIAGNÓSTICO] Resumen de prueba generado.`)
+  return resumenDePrueba
 }
