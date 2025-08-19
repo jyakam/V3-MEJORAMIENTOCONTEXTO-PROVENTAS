@@ -86,25 +86,32 @@ const datosCabecera = {
     NUMERO_PEDIDO_VISIBLE: numeroPedidoVisible,
 };
         
-        // ✅ BLOQUE 3: OBJETO DE LOS DETALLES DEL PEDIDO (CORREGIDO)
+        // ✅ BLOQUE FINAL CORREGIDO para datosDetalles
 const datosDetalles = carrito.map((item, index) => ({
     ID_DETALLE: `${idUnico}-DET-${index + 1}`,
     ID_PEDIDO: idUnico,
     SKU: item.SKU || 'N/A',
     NOMBRE_PRODUCTO: item.NOMBRE_PRODUCTO,
     TIPO_PRODUCTO: 'PRODUCTO',
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se añaden las columnas que sí existen en tu tabla de AppSheet.
+    // Asumimos que toman su valor de las opciones del producto.
+    COLORES: item.OPCION_1_COLOR || '',
+    TALLAS: item.OPCION_2_TALLA || '',
+    // --- FIN DE LA CORRECCIÓN ---
+
+    CANTIDAD: item.CANTIDAD,
     OPCION_1_COLOR: item.OPCION_1_COLOR || '',
     OPCION_2_TALLA: item.OPCION_2_TALLA || '',
     OPCION_3_TAMANO: item.OPCION_3_TAMANO || '',
     OPCION_4_SABOR: item.OPCION_4_SABOR || '',
-    CANTIDAD: item.CANTIDAD,
     PRECIO_UNITARIO: item.PRECIO_UNITARIO,
     TOTAL_PRODUCTOS: item.CANTIDAD * item.PRECIO_UNITARIO,
     CATEGORIA: item.CATEGORIA || 'General',
     NOTA_PRODUCTO: item.NOTA_PRODUCTO || '',
-    // --- Columnas añadidas que pertenecen a los detalles ---
-    FORMA_ENVIO: state.get('forma_envio') || 'Por definir',
-    ORDEN_ESTADO: 'Nuevo',
+    
+    // Las columnas FORMA_ENVIO y ORDEN_ESTADO han sido eliminadas porque no existen en la tabla.
 }));
 
         console.log('✨ [DEBUG PEDIDO] Paquete de CABECERA (Completo) a enviar:', JSON.stringify(datosCabecera, null, 2));
