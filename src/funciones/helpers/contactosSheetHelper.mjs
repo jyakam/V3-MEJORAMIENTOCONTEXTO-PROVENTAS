@@ -145,11 +145,11 @@ export async function ActualizarFechasContacto(contacto, phone) {
 }
 
 // NUEVO BLOQUE CORREGIDO
+// VERSIÓN FINAL Y DEFINITIVA - REEMPLAZAR LA FUNCIÓN COMPLETA
 export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
   console.log(`🧠 Intentando guardar resumen para ${phone}...`)
 
-  // PASO 1: CONSERVAMOS TU BLOQUE DE VALIDACIÓN VITAL
-  // Validaciones para guardar solo resúmenes útiles
+  // PASO 1: VALIDACIÓN DE CALIDAD DEL RESUMEN
   if (
     !nuevoResumen ||
     nuevoResumen.length < 10 ||
@@ -162,25 +162,29 @@ export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
     return
   }
 
-  // PASO 2: OBTENEMOS EL ESTADO ACTUAL DEL CONTACTO
+  // PASO 2: OBTENER EL ESTADO ACTUAL DEL CONTACTO DESDE LA CACHÉ
   const contactoPrevio = getContactoByTelefono(phone) || { TELEFONO: phone };
 
-  // PASO 3: IMPLEMENTAMOS LA NUEVA LÓGICA DE "CORRIMIENTO"
+  // --- INICIO DE LA CORRECCIÓN FINAL QUE FALTABA ---
+  // "Limpiamos" los textos de los 3 resúmenes, reemplazando los saltos de línea por espacios.
+  // Esto convierte el texto en una sola línea segura para que AppSheet la procese sin errores.
+  const resumenLimpio1 = nuevoResumen.trim().replace(/\n/g, ' ');
+  const resumenLimpio2 = (contactoPrevio.RESUMEN_ULTIMA_CONVERSACION || '').replace(/\n/g, ' ');
+  const resumenLimpio3 = (contactoPrevio.RESUMEN_2 || '').replace(/\n/g, ' ');
+  // --- FIN DE LA CORRECCIÓN FINAL ---
+
+  // PASO 3: CONSTRUIR EL PAQUETE DE DATOS CON LOS RESÚMENES YA LIMPIOS
   const datosParaGuardar = {
     ...contactoPrevio,
     TELEFONO: phone,
-    // El nuevo resumen (limpio con .trim()) siempre va al campo principal
-    RESUMEN_ULTIMA_CONVERSACION: nuevoResumen.trim(),
-    // El anterior 1 pasa a ser el 2
-    RESUMEN_2: contactoPrevio.RESUMEN_ULTIMA_CONVERSACION || '',
-    // El anterior 2 pasa a ser el 3
-    RESUMEN_3: contactoPrevio.RESUMEN_2 || ''
+    RESUMEN_ULTIMA_CONVERSACION: resumenLimpio1,
+    RESUMEN_2: resumenLimpio2,
+    RESUMEN_3: resumenLimpio3
   }
 
-  // PASO 4: GUARDAMOS EN LA BASE DE DATOS DE FORMA SEGURA
+  // PASO 4: GUARDAR EN LA BASE DE DATOS DE FORMA SEGURA
   try {
     const props = { Action: 'Edit' }
-    // Usamos limpiarRowContacto para asegurar que los datos estén bien formateados antes de enviarlos
     const row = limpiarRowContacto(datosParaGuardar, 'Edit')
     
     console.log('[DEBUG RESUMEN] Encolando tarea para actualizar historial de 3 resúmenes.');
@@ -190,12 +194,11 @@ export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
     })
 
     console.log(`📝 Historial de resúmenes actualizado en AppSheet para ${phone}`)
-    // Actualizamos la caché local con los nuevos datos para mantener la consistencia
+    // Actualizamos la caché local solo si el guardado fue exitoso
     actualizarContactoEnCache(datosParaGuardar)
   } catch (err) {
+    // Si hay un error, lo registramos pero ya no corrompemos la caché
     console.log(`❌ Error guardando historial de resúmenes para ${phone} via queue:`, err?.message)
-    // LAS LÍNEAS PROBLEMÁTICAS HAN SIDO ELIMINADAS DE AQUÍ.
-    // Ya no se actualiza la caché si hay un error de guardado.
   }
 }
 
