@@ -145,60 +145,54 @@ export async function ActualizarFechasContacto(contacto, phone) {
 }
 
 // NUEVO BLOQUE CORREGIDO
-// VERSIÓN FINAL Y DEFINITIVA - REEMPLAZAR LA FUNCIÓN COMPLETA
+// NUEVO BLOQUE CON LOGS DE DEPURACIÓN DETALLADOS
 export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
   console.log(`🧠 Intentando guardar resumen para ${phone}...`)
 
-  // PASO 1: VALIDACIÓN DE CALIDAD DEL RESUMEN
   if (
     !nuevoResumen ||
     nuevoResumen.length < 10 ||
     nuevoResumen.trim().startsWith('{') ||
-    nuevoResumen.trim().startsWith('```json') ||
-    nuevoResumen.toLowerCase().includes('"nombre"') ||
-    nuevoResumen.toLowerCase().includes('"email"')
+    nuevoResumen.trim().startsWith('```json')
   ) {
     console.log(`⛔ Resumen ignorado por formato inválido o de baja calidad para ${phone}`)
     return
   }
 
-  // PASO 2: OBTENER EL ESTADO ACTUAL DEL CONTACTO DESDE LA CACHÉ
+  // --- CÁMARA 1: DATOS DE ENTRADA ---
+  console.log('📸 [DEBUG HELPER] 1. Resumen NUEVO recibido (crudo):', nuevoResumen);
   const contactoPrevio = getContactoByTelefono(phone) || { TELEFONO: phone };
+  console.log('📸 [DEBUG HELPER] 2. Contacto PREVIO desde caché:', JSON.stringify(contactoPrevio, null, 2));
 
-  // --- INICIO DE LA CORRECCIÓN FINAL QUE FALTABA ---
-  // "Limpiamos" los textos de los 3 resúmenes, reemplazando los saltos de línea por espacios.
-  // Esto convierte el texto en una sola línea segura para que AppSheet la procese sin errores.
+  // --- LÓGICA DE LIMPIEZA ---
   const resumenLimpio1 = nuevoResumen.trim().replace(/\n/g, ' ');
   const resumenLimpio2 = (contactoPrevio.RESUMEN_ULTIMA_CONVERSACION || '').replace(/\n/g, ' ');
   const resumenLimpio3 = (contactoPrevio.RESUMEN_2 || '').replace(/\n/g, ' ');
-  // --- FIN DE LA CORRECCIÓN FINAL ---
 
-  // PASO 3: CONSTRUIR EL PAQUETE DE DATOS CON LOS RESÚMENES YA LIMPIOS
+  // --- CÁMARA 2: DATOS DESPUÉS DE LA LIMPIEZA ---
+  console.log('📸 [DEBUG HELPER] 3a. Resumen 1 DESPUÉS de limpiar:', resumenLimpio1);
+  console.log('📸 [DEBUG HELPER] 3b. Resumen 2 DESPUÉS de limpiar:', resumenLimpio2);
+  console.log('📸 [DEBUG HELPER] 3c. Resumen 3 DESPUÉS de limpiar:', resumenLimpio3);
+
   const datosParaGuardar = {
     ...contactoPrevio,
     TELEFONO: phone,
     RESUMEN_ULTIMA_CONVERSACION: resumenLimpio1,
     RESUMEN_2: resumenLimpio2,
-    RESUMEN_3: resumenLimpio3
+    RESUMEN_3: resumenLimpo3
   }
 
-  // PASO 4: GUARDAR EN LA BASE DE DATOS DE FORMA SEGURA
+  // --- CÁMARA 3: OBJETO FINAL ANTES DE ENVIAR ---
+  console.log('📸 [DEBUG HELPER] 4. Objeto FINAL a guardar:', JSON.stringify(datosParaGuardar, null, 2));
+
   try {
     const props = { Action: 'Edit' }
     const row = limpiarRowContacto(datosParaGuardar, 'Edit')
-    
-    console.log('[DEBUG RESUMEN] Encolando tarea para actualizar historial de 3 resúmenes.');
-
-    await addTask(() => {
-      return postTableWithRetrySafe(APPSHEETCONFIG, process.env.PAG_CONTACTOS, [row], props)
-    })
-
+    await addTask(() => postTableWithRetrySafe(APPSHEETCONFIG, HOJA_CONTACTOS, [row], props))
     console.log(`📝 Historial de resúmenes actualizado en AppSheet para ${phone}`)
-    // Actualizamos la caché local solo si el guardado fue exitoso
     actualizarContactoEnCache(datosParaGuardar)
   } catch (err) {
-    // Si hay un error, lo registramos pero ya no corrompemos la caché
-    console.log(`❌ Error guardando historial de resúmenes para ${phone} via queue:`, err?.message)
+    console.log(`❌ Error definitivo guardando historial de resúmenes para ${phone}. La caché no será actualizada.`)
   }
 }
 
