@@ -51,7 +51,8 @@ export const crearPedidoDesdeState = async (state, ctx) => {
         const valorTotal = subtotal; // Futuro: sumar envío, etc.
 
         const ahora = new Date();
-        const fecha = `${ahora.getDate().toString().padStart(2, '0')}/${(ahora.getMonth() + 1).toString().padStart(2, '0')}/${ahora.getFullYear()}`;
+        // CORREGIDO: Invertido el día y el mes para formato MM/DD/YYYY
+        const fecha = `${(ahora.getMonth() + 1).toString().padStart(2, '0')}/${ahora.getDate().toString().padStart(2, '0')}/${ahora.getFullYear()}`;
         const hora = `${ahora.getHours().toString().padStart(2, '0')}:${ahora.getMinutes().toString().padStart(2, '0')}:${ahora.getSeconds().toString().padStart(2, '0')}`;
 
       // ✅ BLOQUE 2: OBJETO DE LA CABECERA DEL PEDIDO (CORREGIDO)
