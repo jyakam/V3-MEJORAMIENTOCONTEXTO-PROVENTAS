@@ -1,6 +1,5 @@
 import { getTable } from 'appsheet-connect'
-import { APPSHEETCONFIG } from '../../config/bot.mjs'
-import { CONTACTOS } from '../../config/bot.mjs'
+import { APPSHEETCONFIG, CONTACTOS, BOT } from '../../config/bot.mjs'
 
 const CACHE = { LISTA_CONTACTOS: [] }
 console.log('🗃️ [CACHE_CONTACTOS] Inicializando caché de contactos')
@@ -72,6 +71,19 @@ export function actualizarContactoEnCache(contacto) {
   if (snapPrevio && snapPrevio.NOMBRE && snapEntrante.NOMBRE && snapPrevio.NOMBRE !== snapEntrante.NOMBRE) {
     console.warn('⚠️ [CACHE_CONTACTOS] CAMBIO DE NOMBRE DETECTADO', { de: snapPrevio.NOMBRE, a: snapEntrante.NOMBRE });
   }
+
+  // --- INICIO DEL BLINDAJE ---
+  // Si ya existe un nombre real, evitamos que se sobrescriba con el nombre del bot o con "Sin Nombre".
+  if (snapPrevio && snapPrevio.NOMBRE && snapPrevio.NOMBRE !== 'Sin Nombre') {
+    const nombreBot = BOT.NOMBRE || 'Laura'; // Usamos el nombre del bot desde la config, con un fallback
+    if (snapEntrante.NOMBRE === nombreBot || snapEntrante.NOMBRE === 'Sin Nombre') {
+      console.error(`🔥🔥🔥 [BLINDAJE] SE BLOQUEÓ UN INTENTO DE CORRUPCIÓN DE NOMBRE PARA ${contacto.TELEFONO} 🔥🔥🔥`);
+      console.error(`- Se intentó cambiar "${snapPrevio.NOMBRE}" por "${snapEntrante.NOMBRE}". La operación fue denegada.`);
+      // Restablecemos el nombre correcto en el objeto de contacto antes de continuar.
+      contacto.NOMBRE = snapPrevio.NOMBRE;
+    }
+  }
+  // --- FIN DEL BLINDAJE ---
 
   if (idx >= 0) {
     CACHE.LISTA_CONTACTOS[idx] = { ...CACHE.LISTA_CONTACTOS[idx], ...contacto };
