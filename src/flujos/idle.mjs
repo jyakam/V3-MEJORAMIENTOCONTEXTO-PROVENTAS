@@ -22,6 +22,20 @@ export const idleFlow = addKeyword(EVENTS.ACTION).addAction(
   console.log('📸 [DEBUG IDLE] Estado del contacto en CACHÉ ANTES de guardar:', JSON.stringify(getContactoByTelefono(phone), null, 2));
   // --- FIN DEL NUEVO LOG ---
 
+  // === LOGS DE CORRELACIÓN Y SANIDAD (solo lectura) ===
+const OP_ID = `[OP:${phone}:${Date.now()}]`;
+const contactoCacheAntes = getContactoByTelefono(phone) || null;
+
+console.log(`${OP_ID} [IDLE] INICIO CIERRE. Historial mensajes:`, historial.length);
+if (contactoCacheAntes) {
+  const { TELEFONO, NOMBRE, EMAIL, CIUDAD, _RowNumber } = contactoCacheAntes;
+  console.log(`${OP_ID} [IDLE] CONTACTO EN CACHÉ (ANTES):`, { TELEFONO, NOMBRE, EMAIL, CIUDAD, _RowNumber });
+  const t1 = (contactoCacheAntes.RESUMEN_ULTIMA_CONVERSACION || '').length;
+  const t2 = (contactoCacheAntes.RESUMEN_2 || '').length;
+  const t3 = (contactoCacheAntes.RESUMEN_3 || '').length;
+  console.log(`${OP_ID} [IDLE] LONGITUDES RESÚMENES (ANTES):`, { t1, t2, t3 });
+}
+
   if (historial.length > 3) { // Solo si hubo conversación relevante
         const textoHistorial = historial.map(msg => 
           `${msg.rol === 'cliente' ? 'Cliente' : 'Bot'}: ${msg.texto}`
@@ -31,10 +45,25 @@ export const idleFlow = addKeyword(EVENTS.ACTION).addAction(
         const resumenGlobal = await generarResumenMejorado(textoHistorial, phone);
 
        // 3. Guarda el resumen en AppSheet/Google Sheets
-        if (resumenGlobal) {
-          await ActualizarResumenUltimaConversacion(phone, resumenGlobal);
-          console.log(`✅ [IDLE] Resumen global de sesión guardado para ${phone}`);
-        }
+      if (resumenGlobal) {
+  console.log(`${OP_ID} [IDLE] Resumen global generado. Longitud=`, resumenGlobal.length, 
+              'Preview=', resumenGlobal.slice(0, 150), '...');
+
+  await ActualizarResumenUltimaConversacion(phone, resumenGlobal);
+
+  // Verificar cómo queda la caché inmediatamente después del intento
+  const contactoCacheDespues = getContactoByTelefono(phone) || null;
+  if (contactoCacheDespues) {
+    const { TELEFONO, NOMBRE, EMAIL, CIUDAD, _RowNumber } = contactoCacheDespues;
+    console.log(`${OP_ID} [IDLE] CONTACTO EN CACHÉ (DESPUÉS):`, { TELEFONO, NOMBRE, EMAIL, CIUDAD, _RowNumber });
+    const d1 = (contactoCacheDespues.RESUMEN_ULTIMA_CONVERSACION || '').length;
+    const d2 = (contactoCacheDespues.RESUMEN_2 || '').length;
+    const d3 = (contactoCacheDespues.RESUMEN_3 || '').length;
+    console.log(`${OP_ID} [IDLE] LONGITUDES RESÚMENES (DESPUÉS):`, { d1, d2, d3 });
+  }
+
+  console.log(`✅ [IDLE] Resumen global de sesión guardado para ${phone}`);
+}
       }
 
       // --- INICIO DE LA NUEVA LÓGICA PARA CREAR PEDIDO ---
@@ -55,6 +84,11 @@ export const idleFlow = addKeyword(EVENTS.ACTION).addAction(
       console.log('❌ [IDLE] Error generando o guardando resumen global:', e);
     }
     stop(ctx);
+    // Fuente del "nombre" que imprimimos en cierre
+console.log(`${OP_ID} [IDLE] FUENTES NOMBRE CIERRE`, {
+  ctx_name: ctx?.name,
+  cache_name: (getContactoByTelefono(phone) || {}).NOMBRE
+});
     console.log(`Sesion Cerrada para ${ctx.name} con el numero: ${ctx.from}`);
     state.clear();
     return endFlow();
