@@ -56,6 +56,16 @@ export function addTask(task) {
             console.log('[DEBUG QUEUE] Error log addTask:', e?.message);
         }
 
+// Heurística mínima: intenta inferir el origen por el cuerpo de task.toString (solo logs)
+try {
+  const ts = String(task);
+  const hint = ts.includes('ActualizarResumenUltimaConversacion') ? 'RESUMEN'
+              : ts.includes('ActualizarFechasContacto') ? 'FECHAS'
+              : ts.includes('GuardarContacto') ? 'GUARDAR'
+              : 'DESCONOCIDO';
+  console.log(`🧵 [QUEUE] Hint de origen de tarea: ${hint}`);
+} catch {}
+        
         // Añadimos la tarea y sus manejadores de promesa a la fila (MISMA LÓGICA)
         queue.push({ task, resolve, reject });
 
