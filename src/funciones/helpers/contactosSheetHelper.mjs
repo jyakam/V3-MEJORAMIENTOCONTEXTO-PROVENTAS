@@ -222,12 +222,12 @@ export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
 
   // Construcción de datos aplicando la limpieza para asegurar compatibilidad
   const datosParaGuardar = {
-    ...contactoPrevio,
-    TELEFONO: phone,
-    RESUMEN_ULTIMA_CONVERSACION: limpiarTextoParaAppSheet(nuevoResumen),
-    RESUMEN_2: limpiarTextoParaAppSheet(contactoPrevio.RESUMEN_ULTIMA_CONVERSACION),
-    RESUMEN_3: limpiarTextoParaAppSheet(contactoPrevio.RESUMEN_2)
-  };
+  ...contactoPrevio,
+  TELEFONO: phone,
+  RESUMEN_ULTIMA_CONVERSACION: limpiarTextoParaAppSheet(nuevoResumen),
+  RESUMEN_2: limpiarTextoParaAppSheet(contactoPrevio.RESUMEN_ULTIMA_CONVERSACION)
+  // 🚫 Eliminamos RESUMEN_3
+};
 
   try {
     const props = { Action: 'Edit' };
