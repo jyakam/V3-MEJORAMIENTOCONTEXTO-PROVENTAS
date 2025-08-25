@@ -34,11 +34,11 @@ export async function cargarContextoAnterior(phone) {
   )
 
   const contexto = {
-    resumen1: contacto.RESUMEN_ULTIMA_CONVERSACION || '',
-    resumen2: contacto.RESUMEN_2 || '',
-    resumen3: contacto.RESUMEN_3 || '',
-    datosCliente: datosLimpios
-  }
+  resumen1: contacto.RESUMEN_ULTIMA_CONVERSACION || '',
+  resumen2: contacto.RESUMEN_2 || '',
+  datosCliente: datosLimpios
+  // 🚫 Eliminamos resumen3
+};
 
   // Solo retornamos contexto si realmente hay algo que recordar
   if (!contexto.resumen1 && !contexto.resumen2 && !contexto.resumen3 && Object.keys(contexto.datosCliente).length === 0) {
@@ -73,20 +73,17 @@ export function inyectarContextoAlPrompt(contexto) {
   }
 
   // Frase introductoria para el historial de resúmenes
-  const tieneResumenes = contexto.resumen1 || contexto.resumen2 || contexto.resumen3
-  if (tieneResumenes) {
-    promptAdicional += '\nEste cliente es antiguo. Las últimas veces que hablaste con él ha sido de esto:\n'
-    if (contexto.resumen1) {
-      promptAdicional += `\n--- RESUMEN MÁS RECIENTE ---\n${contexto.resumen1}\n`
-    }
-    if (contexto.resumen2) {
-      promptAdicional += `\n--- RESUMEN INTERMEDIO ---\n${contexto.resumen2}\n`
-    }
-    if (contexto.resumen3) {
-      promptAdicional += `\n--- RESUMEN MÁS ANTIGUO ---\n${contexto.resumen3}\n`
-    }
-    promptAdicional += '\nUsa estos resúmenes para entender el historial del cliente y retomar la conversación donde la dejaron.\n'
+  const tieneResumenes = contexto.resumen1 || contexto.resumen2
+if (tieneResumenes) {
+  promptAdicional += '\nEste cliente es antiguo. Las últimas veces que hablaste con él ha sido de esto:\n'
+  if (contexto.resumen1) {
+    promptAdicional += `\n--- RESUMEN MÁS RECIENTE ---\n${contexto.resumen1}\n`
   }
+  if (contexto.resumen2) {
+    promptAdicional += `\n--- RESUMEN ANTERIOR ---\n${contexto.resumen2}\n`
+  }
+  promptAdicional += '\nUsa estos resúmenes para entender el historial del cliente y retomar la conversación donde la dejaron.\n'
+}
 
   promptAdicional += '--- FIN CONTEXTO DEL CLIENTE ---\n'
 
