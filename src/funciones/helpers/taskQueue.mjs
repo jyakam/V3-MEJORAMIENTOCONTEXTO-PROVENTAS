@@ -10,34 +10,34 @@ let isProcessing = false; // Una bandera para saber si el "recepcionista" está 
  * Esta función es el corazón del sistema de turnos.
  */
 async function processQueue() {
-    // Si ya hay una tarea en ejecución o si la fila está vacía, no hacemos nada.
-    if (isProcessing || queue.length === 0) {
-        return;
-    }
+  // Si ya hay una tarea en ejecución o si la fila está vacía, no hacemos nada.
+  if (isProcessing || queue.length === 0) {
+    return;
+  }
 
-    isProcessing = true; // Levantamos la bandera: "estoy ocupado".
+  isProcessing = true; // Levantamos la bandera: "estoy ocupado".
 
-    // Sacamos la primera tarea de la fila, que incluye la tarea y sus manejadores de promesa.
-    const { task, resolve, reject } = queue.shift();
+  // Sacamos la primera tarea de la fila, que incluye la tarea y sus manejadores de promesa.
+  const { task, resolve, reject } = queue.shift();
 
-    try {
-        console.log(`🔵 [QUEUE] Iniciando nueva tarea. Tareas pendientes: ${queue.length}`);
-        // Ejecutamos la tarea (ej: la llamada a postTable) y esperamos el resultado.
-        const result = await task();
-        console.log(`🟢 [QUEUE] Tarea completada con éxito.`);
-        // Devolvemos el resultado exitoso a quien originalmente llamó la tarea.
-        resolve(result);
-    } catch (error) {
-        // Si la tarea falla, lo registramos y le informamos del error a quien la llamó.
-        console.error('🔴 [QUEUE] La tarea en la fila falló:', error);
-        reject(error);
-    } finally {
-        // Haya éxito o error, la tarea ha terminado.
-        isProcessing = false; // Bajamos la bandera: "estoy libre".
-        console.log(`⚪ [QUEUE] Procesador libre. Verificando si hay más tareas en la fila...`);
-        // Volvemos a llamar a la función para ver si hay más tareas esperando su turno.
-        processQueue();
-    }
+  try {
+    console.log(`🔵 [QUEUE] Iniciando nueva tarea. Tareas pendientes: ${queue.length}`);
+    // Ejecutamos la tarea (ej: la llamada a postTable) y esperamos el resultado.
+    const result = await task();
+    console.log(`🟢 [QUEUE] Tarea completada con éxito.`);
+    // Devolvemos el resultado exitoso a quien originalmente llamó la tarea.
+    resolve(result);
+  } catch (error) {
+    // Si la tarea falla, lo registramos y le informamos del error a quien la llamó.
+    console.error('🔴 [QUEUE] La tarea en la fila falló:', error);
+    reject(error);
+  } finally {
+    // Haya éxito o error, la tarea ha terminado.
+    isProcessing = false; // Bajamos la bandera: "estoy libre".
+    console.log(`⚪ [QUEUE] Procesador libre. Verificando si hay más tareas en la fila...`);
+    // Volvemos a llamar a la función para ver si hay más tareas esperando su turno.
+    processQueue();
+  }
 }
 
 /**
@@ -48,29 +48,29 @@ async function processQueue() {
  * @returns {Promise<any>}
  */
 export function addTask(task) {
-    return new Promise((resolve, reject) => {
-        try {
-            const now = new Date().toISOString();
-            console.log(`📥 [QUEUE] Nueva tarea añadida a la fila. Total en fila ahora: ${queue.length + 1} @ ${now}`);
-        } catch (e) {
-            console.log('[DEBUG QUEUE] Error log addTask:', e?.message);
-        }
+  return new Promise((resolve, reject) => {
+    try {
+      const now = new Date().toISOString();
+      console.log(`📥 [QUEUE] Nueva tarea añadida a la fila. Total en fila ahora: ${queue.length + 1} @ ${now}`);
+    } catch (e) {
+      console.log('[DEBUG QUEUE] Error log addTask:', e?.message);
+    }
 
-// Heurística mínima: intenta inferir el origen por el cuerpo de task.toString (solo logs)
-try {
-  const ts = String(task);
-  const hint = ts.includes('ActualizarResumenUltimaConversacion') ? 'RESUMEN'
-              : ts.includes('ActualizarFechasContacto') ? 'FECHAS'
-              : ts.includes('GuardarContacto') ? 'GUARDAR'
-              : 'DESCONOCIDO';
-  console.log(`🧵 [QUEUE] Hint de origen de tarea: ${hint}`);
-} catch {}
-        
-        // Añadimos la tarea y sus manejadores de promesa a la fila (MISMA LÓGICA)
-        queue.push({ task, resolve, reject });
+    // Heurística mínima: intenta inferir el origen por el cuerpo de task.toString (solo logs)
+    try {
+      const ts = String(task);
+      const hint =
+        ts.includes('ActualizarResumenUltimaConversacion') ? 'RESUMEN' :
+        ts.includes('ActualizarFechasContacto') ? 'FECHAS' :
+        ts.includes('GuardarContacto') ? 'GUARDAR' :
+        'DESCONOCIDO';
+      console.log(`🧵 [QUEUE] Hint de origen de tarea: ${hint}`);
+    } catch {}
 
-        // Intentamos iniciar el procesamiento. Si ya está ocupado, la tarea simplemente esperará su turno (MISMA LÓGICA)
-        processQueue();
-    });
+    // Añadimos la tarea y sus manejadores de promesa a la fila (MISMA LÓGICA)
+    queue.push({ task, resolve, reject });
+
+    // Intentamos iniciar el procesamiento. Si ya está ocupado, la tarea simplemente esperará su turno (MISMA LÓGICA)
+    processQueue();
+  });
 }
-
