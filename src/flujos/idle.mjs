@@ -12,18 +12,19 @@ const timers = {};
 // TT Flujo para manejar la inactividad
 export const idleFlow = addKeyword(EVENTS.ACTION).addAction(
   async (ctx, { flowDynamic, endFlow, state }) => { // Removí gotoFlow ya que no se usa aquí
+  const phone = ctx.from.split('@')[0];
+  const OP_ID = `[OP:${phone}:${Date.now()}]`; // <-- CORRECCIÓN: Movido aquí arriba
+
    try {
   // 1. Obtener el historial de la conversación
   const historial = state.get('historialMensajes') || [];
-  const phone = ctx.from.split('@')[0];
-
+  
   // --- NUEVO LOG DE DEPURACIÓN ---
   // Esta "cámara" nos muestra los datos del contacto ANTES de hacer cualquier cosa.
   console.log('📸 [DEBUG IDLE] Estado del contacto en CACHÉ ANTES de guardar:', JSON.stringify(getContactoByTelefono(phone), null, 2));
   // --- FIN DEL NUEVO LOG ---
 
   // === LOGS DE CORRELACIÓN Y SANIDAD (solo lectura) ===
-const OP_ID = `[OP:${phone}:${Date.now()}]`;
 const contactoCacheAntes = getContactoByTelefono(phone) || null;
 
 console.log(`${OP_ID} [IDLE] INICIO CIERRE. Historial mensajes:`, historial.length);
