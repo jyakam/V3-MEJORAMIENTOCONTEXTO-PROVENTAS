@@ -23,33 +23,61 @@ function aIso(entrada) {
   return entrada
 }
 
-// NUEVO BLOQUE DE CÓDIGO
+// PROPUESTA (solo logs + manejo explícito de cuerpo vacío/no-JSON)
+// ¿Autorizas reemplazar la función entera por esta versión?
 async function postTableWithRetrySafe(config, table, data, props, retries = 3, delay = 1000) {
-    // Mantenemos tu log de depuración, es muy útil.
-    console.log('📦 [DEBUG RESUMEN] Datos enviados a AppSheet:', JSON.stringify(data, null, 2));
+  // Mantenemos tu log de depuración existente
+  console.log('📦 [DEBUG RESUMEN] Datos enviados a AppSheet:', JSON.stringify(data, null, 2));
 
-    for (let i = 0; i < retries; i++) {
+  // === LOGS DIAGNÓSTICO REQUEST ===
+  const reqLen = JSON.stringify(data).length;
+  console.log('[APPSHEET][REQ] Tabla:', table, 'Props=', props, 'PayloadLength=', reqLen);
+
+  // Bucle de reintentos (único)
+  for (let i = 0; i < retries; i++) {
+    try {
+      const t0 = Date.now();
+      const resp = await postTable(config, table, data, props);
+      const dt = Date.now() - t0;
+
+      // === LOGS DIAGNÓSTICO RESPONSE ===
+      console.log(`[APPSHEET][RESP][try=${i+1}] tipo=`, typeof resp, 'tiempoMs=', dt);
+
+      // Caso: respuesta vacía/undefined (p. ej., 204 No Content)
+      if (!resp) {
+        console.log(`[APPSHEET][RESP][try=${i+1}] cuerpo vacío/undefined (posible 204). Lo tratamos como éxito vacío.`);
+        return [];
+      }
+
+      // Caso: string (intentar parsear; si no es JSON, tratar como éxito vacío)
+      if (typeof resp === 'string') {
+        const raw = String(resp);
+        console.log(`[APPSHEET][RESP][try=${i+1}] string len=`, raw.length, 'preview=', raw.slice(0, 200));
         try {
-            const resp = await postTable(config, table, data, props)
-            // La lógica original de la versión funcional era más simple y robusta.
-            if (!resp) return [] // Si AppSheet responde sin cuerpo (éxito 204), es un éxito.
-            if (typeof resp === 'string') {
-                // Si responde con texto, intentamos convertirlo a JSON. Si falla, es un éxito vacío.
-                try { return JSON.parse(resp) } catch { return [] }
-            }
-            return resp
-        } catch (err) {
-            // Si hay CUALQUIER error (incluido el SyntaxError), lo reintentamos.
-            // Si después de todos los reintentos sigue fallando, lanzamos el error para que
-            // la función que llamó se entere del problema. Ya no lo ocultamos.
-            console.error(` intento ${i + 1} de ${retries} falló.`);
-            if (i === retries - 1) {
-                console.error(`❌ [HELPER] Fallo definitivo al contactar AppSheet después de ${retries} intentos.`);
-                throw err;
-            }
-            await new Promise(r => setTimeout(r, delay))
+          const json = JSON.parse(raw);
+          return json;
+        } catch (e) {
+          console.log(`[APPSHEET][RESP][try=${i+1}] string no-JSON. Lo tratamos como éxito vacío. Motivo:`, e?.message);
+          return [];
         }
+      }
+
+      // Caso: objeto/array JSON ya parseado
+      return resp;
+
+    } catch (err) {
+      console.error(`[APPSHEET][ERROR][try=${i+1}]`, err?.name, err?.message);
+      if (err?.stack) console.error('[APPSHEET][STACK]', err.stack);
+
+      // Último intento: propagar error (no lo ocultamos)
+      if (i === retries - 1) {
+        console.error(`❌ [HELPER] Fallo definitivo tras ${retries} intentos.`);
+        throw err;
+      }
+      // Backoff simple
+      await new Promise(r => setTimeout(r, delay));
     }
+  }
 }
 
 function limpiarRowContacto(row, action = 'Add') { // Le añadimos el parámetro "action"
@@ -118,6 +146,8 @@ export async function ActualizarFechasContacto(contacto, phone) {
     console.log('[DEBUG FECHAS] Row FINAL (sanitizado):', JSON.stringify(row, null, 2))
 
     console.log(`[DEBUG FECHAS] Acción AppSheet = ${propsDinamicas.Action}`)
+    console.log('[FECHAS][ROW] claves=', Object.keys(row).sort());
+console.log('[FECHAS][ROW] snapshot:', { TELEFONO: row.TELEFONO, NOMBRE: row.NOMBRE, EMAIL: row.EMAIL, CIUDAD: row.CIUDAD, _RowNumber: row._RowNumber });
 
     // 🔑 Instancia FRESCA de AppSheet por operación (evita estado raro)
     await addTask(() => {
@@ -146,7 +176,7 @@ export async function ActualizarFechasContacto(contacto, phone) {
 
 // VERSIÓN FINAL CORREGIDA - REEMPLAZAR LA FUNCIÓN COMPLETA
 export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
-  console.log(`🧠 Intentando guardar resumen para ${phone}...`)
+  console.log(`🧠 Intentando guardar resumen para ${phone}...`);
 
   if (
     !nuevoResumen ||
@@ -154,44 +184,61 @@ export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
     nuevoResumen.trim().startsWith('{') ||
     nuevoResumen.trim().startsWith('```json')
   ) {
-    console.log(`⛔ Resumen ignorado por formato inválido o de baja calidad para ${phone}`)
-    return
+    console.log(`⛔ Resumen ignorado por formato inválido o de baja calidad para ${phone}`);
+    return;
   }
 
   const contactoPrevio = getContactoByTelefono(phone) || { TELEFONO: phone };
 
-  // --- INICIO DE LA NUEVA LIMPIEZA ROBUSTA ---
-  // Esta nueva función reemplaza CUALQUIER tipo de salto de línea, tabulación o espacios múltiples
-  // por un único espacio, asegurando un texto plano y seguro.
-  const limpiarTexto = (texto) => (texto || '').replace(/\s\s+/g, ' ').trim();
-  
-  const resumenLimpio1 = limpiarTexto(nuevoResumen);
-  const resumenLimpio2 = limpiarTexto(contactoPrevio.RESUMEN_ULTIMA_CONVERSACION);
-  const resumenLimpio3 = limpiarTexto(contactoPrevio.RESUMEN_2);
-  // --- FIN DE LA NUEVA LIMPIEZA ROBUSTA ---
+  // --- INICIO DE LA NUEVA LIMPIEZA ROBUSTA (DESACTIVADA PARA NO CAMBIAR LÓGICA) ---
+  // const limpiarTexto = (texto) => (texto || '').replace(/\s\s+/g, ' ').trim();
+  // const resumenLimpio1 = limpiarTexto(nuevoResumen);
+  // const resumenLimpio2 = limpiarTexto(contactoPrevio.RESUMEN_ULTIMA_CONVERSACION);
+  // const resumenLimpio3 = limpiarTexto(contactoPrevio.RESUMEN_2);
+  // --- FIN DE LA NUEVA LIMPIEZA ROBUSTA (DESACTIVADA) ---
 
-  // Corregimos mi error de tipeo aquí (resumenLimpio3)
+  // === LOGS DIAGNÓSTICO (ANTES DE ARMAR ROW) ===
+  const prevN = (contactoPrevio.NOMBRE || '');
+  const prevE = (contactoPrevio.EMAIL || '');
+  const prevC = (contactoPrevio.CIUDAD || '');
+  console.log('[RESUMEN][ANTES] contactoPrevio (claves):', {
+    TELEFONO: phone, NOMBRE: prevN, EMAIL: prevE, CIUDAD: prevC, _RowNumber: contactoPrevio?._RowNumber
+  });
+  console.log('[RESUMEN][ANTES] tamaños:', {
+    nuevo: (nuevoResumen || '').length,
+    ult: (contactoPrevio.RESUMEN_ULTIMA_CONVERSACION || '').length,
+    r2: (contactoPrevio.RESUMEN_2 || '').length,
+    r3: (contactoPrevio.RESUMEN_3 || '').length
+  });
+
+  // Construcción de datos SIN alterar lógica existente (usamos valores originales)
   const datosParaGuardar = {
     ...contactoPrevio,
     TELEFONO: phone,
-    RESUMEN_ULTIMA_CONVERSACION: resumenLimpio1,
-    RESUMEN_2: resumenLimpio2,
-    RESUMEN_3: resumenLimpio3
-  }
+    RESUMEN_ULTIMA_CONVERSACION: nuevoResumen, // sin limpieza para no cambiar semántica
+    RESUMEN_2: (contactoPrevio.RESUMEN_ULTIMA_CONVERSACION || ''),
+    RESUMEN_3: (contactoPrevio.RESUMEN_2 || '')
+  };
 
   try {
-    const props = { Action: 'Edit' }
-    const row = limpiarRowContacto(datosParaGuardar, 'Edit')
-    
-    // Podemos quitar los logs de depuración ahora que encontramos el problema
-    // console.log('[DEBUG RESUMEN] Encolando tarea para actualizar historial de 3 resúmenes.');
+    const props = { Action: 'Edit' };
+    const row = limpiarRowContacto(datosParaGuardar, 'Edit');
 
-    await addTask(() => postTableWithRetrySafe(APPSHEETCONFIG, HOJA_CONTACTOS, [row], props))
+    // LOGS del row final que se enviará a AppSheet
+    console.log('[RESUMEN][ROW] Acción=Edit; claves=', Object.keys(row).sort());
+    console.log('[RESUMEN][ROW] tamaños:', {
+      ult: (row.RESUMEN_ULTIMA_CONVERSACION || '').length,
+      r2: (row.RESUMEN_2 || '').length,
+      r3: (row.RESUMEN_3 || '').length
+    });
 
-    console.log(`📝 Historial de resúmenes actualizado en AppSheet para ${phone}`)
-    actualizarContactoEnCache(datosParaGuardar)
+    await addTask(() => postTableWithRetrySafe(APPSHEETCONFIG, HOJA_CONTACTOS, [row], props));
+
+    console.log('[RESUMEN][POST-APPSHEET] Update aparente OK. Procediendo a cache con datosParaGuardar (no respuesta remota).');
+    console.log(`📝 Historial de resúmenes actualizado en AppSheet para ${phone}`);
+    actualizarContactoEnCache(datosParaGuardar);
   } catch (err) {
-    console.log(`❌ Error definitivo guardando historial de resúmenes para ${phone}. La caché no será actualizada.`)
+    console.log(`❌ Error definitivo guardando historial de resúmenes para ${phone}. La caché no será actualizada.`);
   }
 }
 
