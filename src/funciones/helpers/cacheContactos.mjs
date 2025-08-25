@@ -85,23 +85,6 @@ export function actualizarContactoEnCache(contacto) {
   console.log(`🗃️ [CACHE_CONTACTOS] Estado actual: ${CACHE.LISTA_CONTACTOS.length} contactos`);
 }
 
-  // console.log(`🗃️ [CACHE_CONTACTOS] Actualizando contacto:`, contacto);
-  if (!contacto?.TELEFONO) {
-    console.error('❌ [CACHE_CONTACTOS] Contacto inválido, falta TELEFONO');
-    return;
-  }
-  const idx = CACHE.LISTA_CONTACTOS.findIndex(c => c.TELEFONO === contacto.TELEFONO);
-  if (idx >= 0) {
-    CACHE.LISTA_CONTACTOS[idx] = { ...CACHE.LISTA_CONTACTOS[idx], ...contacto };
-  } else {
-    CACHE.LISTA_CONTACTOS.push(contacto);
-  }
-  console.log(`✅ [CACHE_CONTACTOS] Contacto ${contacto.TELEFONO} actualizado`);
-  CONTACTOS.LISTA_CONTACTOS = [...CACHE.LISTA_CONTACTOS];
-  console.log(`🗃️ [CACHE_CONTACTOS] Sincronizado con CONTACTOS: ${CONTACTOS.LISTA_CONTACTOS.length} contactos`);
-  console.log(`🗃️ [CACHE_CONTACTOS] Estado actual: ${CACHE.LISTA_CONTACTOS.length} contactos`);
-}
-
 export function getCacheContactos() {
   return CACHE.LISTA_CONTACTOS;
 }
