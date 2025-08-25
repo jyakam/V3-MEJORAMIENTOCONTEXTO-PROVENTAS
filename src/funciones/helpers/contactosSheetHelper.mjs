@@ -7,6 +7,15 @@ import { getContactoByTelefono, actualizarContactoEnCache } from './cacheContact
 // PASO 1: IMPORTAMOS NUESTRO NUEVO GESTOR DE LA FILA
 import { addTask } from './taskQueue.mjs'
 
+// --- INICIO NUEVA FUNCIÓN DE LIMPIEZA ---
+// Esta función elimina caracteres que pueden causar problemas en AppSheet
+const limpiarTextoParaAppSheet = (texto) => {
+  if (!texto || typeof texto !== 'string') return '';
+  // Reemplaza asteriscos, múltiples espacios y saltos de línea por un solo espacio
+  return texto.replace(/[*]/g, '').replace(/[\n\r]+/g, ' ').replace(/\s\s+/g, ' ').trim();
+};
+// --- FIN NUEVA FUNCIÓN DE LIMPIEZA ---
+
 // -- utilitario local para contactosSheetHelper --
 function aIso(entrada) {
   if (!entrada || typeof entrada !== 'string') return entrada
@@ -211,13 +220,13 @@ export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
     r3: (contactoPrevio.RESUMEN_3 || '').length
   });
 
-  // Construcción de datos SIN alterar lógica existente (usamos valores originales)
+  // Construcción de datos aplicando la limpieza para asegurar compatibilidad
   const datosParaGuardar = {
     ...contactoPrevio,
     TELEFONO: phone,
-    RESUMEN_ULTIMA_CONVERSACION: nuevoResumen, // sin limpieza para no cambiar semántica
-    RESUMEN_2: (contactoPrevio.RESUMEN_ULTIMA_CONVERSACION || ''),
-    RESUMEN_3: (contactoPrevio.RESUMEN_2 || '')
+    RESUMEN_ULTIMA_CONVERSACION: limpiarTextoParaAppSheet(nuevoResumen),
+    RESUMEN_2: limpiarTextoParaAppSheet(contactoPrevio.RESUMEN_ULTIMA_CONVERSACION),
+    RESUMEN_3: limpiarTextoParaAppSheet(contactoPrevio.RESUMEN_2)
   };
 
   try {
