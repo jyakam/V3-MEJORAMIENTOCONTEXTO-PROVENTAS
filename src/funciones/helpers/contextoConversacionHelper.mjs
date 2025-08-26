@@ -41,7 +41,7 @@ export async function cargarContextoAnterior(phone) {
 };
 
   // Solo retornamos contexto si realmente hay algo que recordar
-  if (!contexto.resumen1 && !contexto.resumen2 && !contexto.resumen3 && Object.keys(contexto.datosCliente).length === 0) {
+  if (!contexto.resumen1 && !contexto.resumen2 && Object.keys(contexto.datosCliente).length === 0) {
     console.log(`- [CONTEXTO] El cliente ${phone} existe pero no tiene historial o datos relevantes para recordar.`)
     return null
   }
