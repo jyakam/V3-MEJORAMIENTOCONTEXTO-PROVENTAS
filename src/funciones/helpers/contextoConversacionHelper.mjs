@@ -4,9 +4,9 @@ import { getContactoByTelefono } from './cacheContactos.mjs'
 import { EnviarTextoOpenAI } from '../../APIs/OpenAi/enviarTextoOpenAI.mjs'
 
 /**
- * Carga el contexto anterior de un cliente, incluyendo los 3 últimos resúmenes.
+ * Carga el contexto anterior de un cliente, incluyendo el último resumen de conversación.
  * @param {string} phone - El número de teléfono del cliente.
- * @returns {object|null} Un objeto con los resúmenes y datos del cliente, o null si no hay nada que cargar.
+ * @returns {object|null} Un objeto con el resumen y datos del cliente, o null si no hay nada que cargar.
  */
 export async function cargarContextoAnterior(phone) {
   console.log(`🧠 [CONTEXTO] Cargando contexto para el cliente: ${phone}`)
@@ -17,7 +17,7 @@ export async function cargarContextoAnterior(phone) {
     return null
   }
 
-  // Extraemos los datos y los 3 resúmenes
+  // Extraemos los datos del cliente de forma limpia
   const datosCliente = { ...contacto }
   delete datosCliente.RESUMEN_ULTIMA_CONVERSACION
   delete datosCliente.RESUMEN_2
@@ -33,15 +33,14 @@ export async function cargarContextoAnterior(phone) {
     )
   )
 
+  // Creamos el contexto con UN SOLO resumen
   const contexto = {
-  resumen1: contacto.RESUMEN_ULTIMA_CONVERSACION || '',
-  resumen2: contacto.RESUMEN_2 || '',
-  datosCliente: datosLimpios
-  // 🚫 Eliminamos resumen3
-};
+    resumen: contacto.RESUMEN_ULTIMA_CONVERSACION || '',
+    datosCliente: datosLimpios
+  };
 
   // Solo retornamos contexto si realmente hay algo que recordar
-  if (!contexto.resumen1 && !contexto.resumen2 && Object.keys(contexto.datosCliente).length === 0) {
+  if (!contexto.resumen && Object.keys(contexto.datosCliente).length === 0) {
     console.log(`- [CONTEXTO] El cliente ${phone} existe pero no tiene historial o datos relevantes para recordar.`)
     return null
   }
@@ -52,7 +51,6 @@ export async function cargarContextoAnterior(phone) {
 
 /**
  * Formatea el contexto cargado en un texto claro para ser inyectado en el prompt de la IA.
- * Incluye las frases introductorias que solicitaste.
  * @param {object} contexto - El objeto de contexto devuelto por cargarContextoAnterior.
  * @returns {string} Un string formateado para añadir al prompt, o un string vacío si no hay contexto.
  */
@@ -63,7 +61,7 @@ export function inyectarContextoAlPrompt(contexto) {
 
   let promptAdicional = '\n\n--- INICIO CONTEXTO DEL CLIENTE ---\n'
 
-  // Frase introductoria para los datos del cliente
+  // Frase introductoria para los datos del cliente (SIN CAMBIOS)
   if (contexto.datosCliente && Object.keys(contexto.datosCliente).length > 0) {
     promptAdicional += 'El cliente que estás atendiendo en este momento tiene los siguientes datos en sistema:\n'
     for (const [clave, valor] of Object.entries(contexto.datosCliente)) {
@@ -72,18 +70,12 @@ export function inyectarContextoAlPrompt(contexto) {
     promptAdicional += 'Usa estos datos para personalizar la conversación y para confirmar con el cliente si es necesario. No los pidas de nuevo si ya los tienes.\n'
   }
 
-  // Frase introductoria para el historial de resúmenes
-  const tieneResumenes = contexto.resumen1 || contexto.resumen2
-if (tieneResumenes) {
-  promptAdicional += '\nEste cliente es antiguo. Las últimas veces que hablaste con él ha sido de esto:\n'
-  if (contexto.resumen1) {
-    promptAdicional += `\n--- RESUMEN MÁS RECIENTE ---\n${contexto.resumen1}\n`
+  // Frase introductoria para el historial de resúmenes (SIMPLIFICADA)
+  if (contexto.resumen) {
+    promptAdicional += '\nEste cliente es antiguo. Aquí tienes un resumen de su última conversación para que tengas contexto:\n'
+    promptAdicional += `\n--- RESUMEN CONVERSACIÓN ANTERIOR ---\n${contexto.resumen}\n`
+    promptAdicional += '\nUsa este resumen para entender el historial del cliente y retomar la conversación donde la dejaron.\n'
   }
-  if (contexto.resumen2) {
-    promptAdicional += `\n--- RESUMEN ANTERIOR ---\n${contexto.resumen2}\n`
-  }
-  promptAdicional += '\nUsa estos resúmenes para entender el historial del cliente y retomar la conversación donde la dejaron.\n'
-}
 
   promptAdicional += '--- FIN CONTEXTO DEL CLIENTE ---\n'
 
@@ -97,7 +89,7 @@ if (tieneResumenes) {
  * @param {string} phone - El número de teléfono del cliente.
  * @returns {string} El resumen generado por la IA con fecha.
  */
-// BLOQUE ORIGINAL RESTAURADO
+// ESTA FUNCIÓN NO NECESITA CAMBIOS Y SE MANTIENE IGUAL
 export async function generarResumenMejorado(historial, phone) {
   console.log(`🧠 [CONTEXTO] Generando resumen mejorado para ${phone}...`)
   const contacto = getContactoByTelefono(phone) || {}
