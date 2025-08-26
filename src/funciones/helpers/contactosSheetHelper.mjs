@@ -6,6 +6,7 @@ import { APPSHEETCONFIG } from '../../config/bot.mjs'
 import { getContactoByTelefono, actualizarContactoEnCache } from './cacheContactos.mjs'
 // PASO 1: IMPORTAMOS NUESTRO NUEVO GESTOR DE LA FILA
 import { addTask } from './taskQueue.mjs'
+import { getTable } from 'appsheet-connect'
 
 // --- INICIO NUEVA FUNCIÓN DE LIMPIEZA ---
 // Esta función elimina caracteres que pueden causar problemas en AppSheet
@@ -53,7 +54,6 @@ async function postTableWithRetrySafe(config, table, data, props, retries = 3, d
         return { ok: true, hasBody: false, ambiguous: true, status: undefined, data: undefined };
       }
 
-      // String: intentamos parsear JSON una sola vez
       if (typeof resp === 'string') {
         const raw = String(resp);
         console.log(`[APPSHEET][RESP][try=${i+1}] string len=`, raw.length, 'preview=', raw.slice(0, 200));
@@ -70,8 +70,13 @@ async function postTableWithRetrySafe(config, table, data, props, retries = 3, d
       return { ok: true, hasBody: true, ambiguous: false, status: undefined, data: resp };
 
     } catch (err) {
-      console.error(`[APPSHEET][ERROR][try=${i+1}]`, err?.name, err?.message);
-      if (err?.stack) console.error('[APPSHEET][STACK]', err.stack);
+      const msg = err?.message || '';
+      const isEmptyJSON = err?.name === 'SyntaxError' && /Unexpected end of JSON input/i.test(msg);
+      if (isEmptyJSON) {
+        console.log(`[APPSHEET][RESP][try=${i+1}] SyntaxError por cuerpo vacío (posible 204). Lo tratamos como ambiguous.`);
+        return { ok: true, hasBody: false, ambiguous: true, status: undefined, data: undefined };
+      }
+      console.error(`[APPSHEET][ERROR][try=${i+1}]`, err?.name, msg);
       if (i === retries - 1) {
         console.error(`❌ [HELPER] Fallo definitivo tras ${retries} intentos.`);
         throw err;
@@ -225,9 +230,37 @@ export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
       if (result.hasBody && !result.ambiguous) {
         console.log('[RESUMEN][POST-APPSHEET] Éxito confirmado con cuerpo. Actualizando caché local.');
         actualizarContactoEnCache(datosParaGuardarMin);
-      } else {
-        console.log('[RESUMEN][POST-APPSHEET] Respuesta ambigua (204/empty). NO actualizamos caché.');
-        console.log('[RESUMEN][POST-APPSHEET] Verifica en AppSheet; la caché se sincronizará en la próxima carga.');
+            } else {
+        console.log('[RESUMEN][POST-APPSHEET] Respuesta ambigua (204/empty). Iniciamos read-after-write por TELEFONO:', phone);
+
+        try {
+          // Leer la tabla y obtener la fila por TELEFONO
+          const rows = await getTable(APPSHEETCONFIG, HOJA_CONTACTOS);
+          const remoto = Array.isArray(rows)
+            ? rows.find(r => String(r.TELEFONO) === String(phone))
+            : undefined;
+
+          if (!remoto) {
+            console.log('⚠️ [READ-AFTER-WRITE] No se encontró el contacto remoto tras Edit ambiguo. Caché NO actualizada.');
+          } else {
+            const remotoLen = (remoto.RESUMEN_ULTIMA_CONVERSACION || '').length;
+            const localLen  = (datosParaGuardarMin.RESUMEN_ULTIMA_CONVERSACION || '').length;
+
+            if (remotoLen === localLen && remotoLen > 0) {
+              console.log('✅ [READ-AFTER-WRITE] Confirmado en AppSheet. Actualizamos caché local.');
+              actualizarContactoEnCache({
+                TELEFONO: phone,
+                RESUMEN_ULTIMA_CONVERSACION: remoto.RESUMEN_ULTIMA_CONVERSACION || '',
+                RESUMEN_2: remoto.RESUMEN_2 || '',
+                FECHA_ULTIMO_CONTACTO: remoto.FECHA_ULTIMO_CONTACTO || datosParaGuardarMin.FECHA_ULTIMO_CONTACTO
+              });
+            } else {
+              console.log(`⚠️ [READ-AFTER-WRITE] No coincide longitud remoto(${remotoLen}) vs local(${localLen}). Caché NO actualizada.`);
+            }
+          }
+        } catch (eRaw) {
+          console.log('⚠️ [READ-AFTER-WRITE] Error leyendo AppSheet tras 204:', eRaw?.message || eRaw);
+        }
       }
       console.log(`📝 Historial de resúmenes procesado para ${phone}`);
     } else {
