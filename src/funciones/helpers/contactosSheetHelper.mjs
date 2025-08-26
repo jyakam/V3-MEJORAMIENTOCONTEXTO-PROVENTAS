@@ -193,10 +193,11 @@ console.log('[FECHAS][ROW] snapshot:', { TELEFONO: row.TELEFONO, NOMBRE: row.NOM
   }
 }
 
-// VERSIÓN FINAL CORREGIDA - REEMPLAZAR LA FUNCIÓN COMPLETA
+// VERSIÓN SIMPLIFICADA A UN SOLO RESUMEN
 export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
   console.log(`🧠 Intentando guardar resumen para ${phone}...`);
 
+  // 1. Validamos que el resumen generado sea de buena calidad
   if (
     !nuevoResumen ||
     nuevoResumen.length < 10 ||
@@ -207,127 +208,40 @@ export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
     return;
   }
 
-  const contactoPrevio = getContactoByTelefono(phone) || { TELEFONO: phone };
-
-  // === LOGS DIAGNÓSTICO (ANTES DE ARMAR ROW) ===
-  const prevN = (contactoPrevio.NOMBRE || '');
-  const prevE = (contactoPrevio.EMAIL || '');
-  const prevC = (contactoPrevio.CIUDAD || '');
-  console.log('[RESUMEN][ANTES] contactoPrevio (claves):', {
-    TELEFONO: phone, NOMBRE: prevN, EMAIL: prevE, CIUDAD: prevC, _RowNumber: contactoPrevio?._RowNumber
-  });
-  console.log('[RESUMEN][ANTES] tamaños:', {
-    nuevo: (nuevoResumen || '').length,
-    ult: (contactoPrevio.RESUMEN_ULTIMA_CONVERSACION || '').length,
-    r2: (contactoPrevio.RESUMEN_2 || '').length
-  });
-
-  // Payload MÍNIMO (sin spread de contactoPrevio)
-  const datosParaGuardarMin = {
+  // 2. Preparamos el paquete de datos MÍNIMO y SIMPLIFICADO
+  const datosParaGuardar = {
     TELEFONO: phone,
     RESUMEN_ULTIMA_CONVERSACION: limpiarTextoParaAppSheet(nuevoResumen),
-    RESUMEN_2: limpiarTextoParaAppSheet(contactoPrevio.RESUMEN_ULTIMA_CONVERSACION || ''),
     FECHA_ULTIMO_CONTACTO: ObtenerFechaActual()
   };
 
   try {
+    // 3. Preparamos las propiedades y limpiamos la fila (mismo proceso seguro de siempre)
     const props = { Action: 'Edit' };
-    const row = limpiarRowContacto(datosParaGuardarMin, 'Edit');
+    const row = limpiarRowContacto(datosParaGuardar, 'Edit');
+    
+    console.log('[RESUMEN][ROW] Preparando para enviar. Claves:', Object.keys(row).sort());
 
-    console.log('[RESUMEN][ROW] Acción=Edit; claves=', Object.keys(row).sort());
-    console.log('[RESUMEN][ROW] tamaños:', {
-      ult: (row.RESUMEN_ULTIMA_CONVERSACION || '').length,
-      r2: (row.RESUMEN_2 || '').length
-    });
-
+    // 4. Usamos la cola de tareas y el enviador seguro que ya funcionan
     const result = await addTask(() => postTableWithRetrySafe(APPSHEETCONFIG, HOJA_CONTACTOS, [row], props));
 
+    // 5. Verificamos la respuesta y actualizamos la caché local
     if (result && result.ok) {
-      if (result.hasBody && !result.ambiguous) {
-        console.log('[RESUMEN][POST-APPSHEET] Éxito confirmado con cuerpo. Actualizando caché local.');
-        actualizarContactoEnCache(datosParaGuardarMin);
-                  } else {
-        console.log('[RESUMEN][POST-APPSHEET] Respuesta ambigua (204/empty). Iniciamos read-after-write por TELEFONO:', phone);
+      console.log(`✅ [RESUMEN] Operación de guardado para ${phone} enviada a AppSheet.`);
+      
+      // Obtenemos el estado previo del contacto para no perder datos al actualizar la caché
+      const contactoPrevio = getContactoByTelefono(phone) || { TELEFONO: phone };
+      
+      // Fusionamos el estado previo con los nuevos datos y actualizamos la caché
+      actualizarContactoEnCache({ ...contactoPrevio, ...datosParaGuardar });
+      console.log(`[CACHE] Caché local actualizada para ${phone} con el nuevo resumen.`);
 
-        try {
-          // 1) READ-AFTER-WRITE: leer remoto
-          const rows = await getTable(APPSHEETCONFIG, HOJA_CONTACTOS);
-          const remoto = Array.isArray(rows)
-            ? rows.find(r => String(r.TELEFONO) === String(phone))
-            : undefined;
-
-          const localUlt = (datosParaGuardarMin.RESUMEN_ULTIMA_CONVERSACION || '');
-          const localUltLen = localUlt.length;
-
-          if (!remoto) {
-            console.log('⚠️ [READ-AFTER-WRITE] No se encontró el contacto remoto tras Edit ambiguo.');
-
-            // 2) DIAG Paso A: intentemos marcar ETIQUETA para verificar si la fila es editable
-            const marca = `AUTO_RESUMEN_TEST_${ahoraMarca()}`;
-            console.log('🧪 [DIAG] Enviando ETIQUETA de prueba:', marca);
-            await editarPorTelefono({ TELEFONO: phone, ETIQUETA: marca });
-
-            // 3) leer de nuevo
-            const rows2 = await getTable(APPSHEETCONFIG, HOJA_CONTACTOS);
-            const remoto2 = Array.isArray(rows2)
-              ? rows2.find(r => String(r.TELEFONO) === String(phone))
-              : undefined;
-
-            if (remoto2 && remoto2.ETIQUETA === marca) {
-              console.log('✅ [DIAG] ETIQUETA sí cambió → la fila es editable; el problema está en el campo de resumen.');
-            } else {
-              console.log('❌ [DIAG] ETIQUETA no cambió → parece que la fila no es editable con la API/Key actual o está filtrada.');
-            }
-
-            console.log('⚠️ [READ-AFTER-WRITE] Caché NO actualizada.');
-            return;
-          }
-
-          const remotoLen = (remoto.RESUMEN_ULTIMA_CONVERSACION || '').length;
-
-          if (remotoLen === localUltLen && remotoLen > 0) {
-            console.log('✅ [READ-AFTER-WRITE] Confirmado en AppSheet. Actualizamos caché local.');
-            actualizarContactoEnCache({
-              TELEFONO: phone,
-              RESUMEN_ULTIMA_CONVERSACION: remoto.RESUMEN_ULTIMA_CONVERSACION || '',
-              RESUMEN_2: remoto.RESUMEN_2 || '',
-              FECHA_ULTIMO_CONTACTO: remoto.FECHA_ULTIMO_CONTACTO || datosParaGuardarMin.FECHA_ULTIMO_CONTACTO
-            });
-          } else {
-            console.log(`⚠️ [READ-AFTER-WRITE] No coincide longitud remoto(${remotoLen}) vs local(${localUltLen}).`);
-
-            // 4) DIAG Paso B: intento con RESUMEN corto (para descartar límite de tamaño/validación)
-            const pruebaCorta = `[OK] ${ahoraMarca()}`;
-            console.log('🧪 [DIAG] Intento corto RESUMEN_ULTIMA_CONVERSACION:', pruebaCorta);
-            await editarPorTelefono({ TELEFONO: phone, RESUMEN_ULTIMA_CONVERSACION: pruebaCorta });
-
-            // 5) leer tercera vez
-            const rows3 = await getTable(APPSHEETCONFIG, HOJA_CONTACTOS);
-            const remoto3 = Array.isArray(rows3)
-              ? rows3.find(r => String(r.TELEFONO) === String(phone))
-              : undefined;
-
-            const remoto3Len = (remoto3?.RESUMEN_ULTIMA_CONVERSACION || '').length;
-
-            if (remoto3 && remoto3Len === pruebaCorta.length) {
-              console.log('✅ [DIAG] El resumen corto SÍ se guardó → probable restricción de tamaño/validación en AppSheet para el largo.');
-              console.log('⚠️ [READ-AFTER-WRITE] Caché NO actualizada con el largo original (revisar AppSheet: tipo LongText, Editable_If, Valid_If).');
-            } else {
-              console.log('❌ [DIAG] Ni siquiera el resumen corto se guardó → problema de permisos/edición/slice/Editable_If en AppSheet.');
-            }
-          }
-
-        } catch (eRaw) {
-          console.log('⚠️ [READ-AFTER-WRITE] Error durante diagnóstico tras 204:', eRaw?.message || eRaw);
-        }
-      }
-
-      console.log(`📝 Historial de resúmenes procesado para ${phone}`);
     } else {
-      console.log('❌ [RESUMEN][POST-APPSHEET] Error o respuesta no OK. Caché NO actualizada.');
+      console.log(`❌ [RESUMEN] La operación de guardado falló o tuvo una respuesta no exitosa para ${phone}.`);
     }
+
   } catch (err) {
-    console.log(`❌ Error definitivo guardando historial de resúmenes para ${phone}. La caché no será actualizada.`);
+    console.log(`❌ Error definitivo guardando el resumen para ${phone}: ${err.message}`);
   }
 }
 
