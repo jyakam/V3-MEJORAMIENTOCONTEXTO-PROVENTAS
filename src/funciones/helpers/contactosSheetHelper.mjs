@@ -17,6 +17,22 @@ const limpiarTextoParaAppSheet = (texto) => {
 };
 // --- FIN NUEVA FUNCIÓN DE LIMPIEZA ---
 
+// === Helpers de apoyo para diagnóstico ===
+function ahoraMarca() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
+// Edita una fila por TELEFONO con un payload arbitrario (usa Action Edit)
+async function editarPorTelefono(payloadMin) {
+  const props = { Action: 'Edit' };
+  const row = limpiarRowContacto(payloadMin, 'Edit');
+  console.log('[DIAG EDIT] Acción=Edit; claves=', Object.keys(row).sort());
+  const result = await addTask(() => postTableWithRetrySafe(APPSHEETCONFIG, HOJA_CONTACTOS, [row], props));
+  return result;
+}
+
 // -- utilitario local para contactosSheetHelper --
 function aIso(entrada) {
   if (!entrada || typeof entrada !== 'string') return entrada
@@ -230,38 +246,82 @@ export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
       if (result.hasBody && !result.ambiguous) {
         console.log('[RESUMEN][POST-APPSHEET] Éxito confirmado con cuerpo. Actualizando caché local.');
         actualizarContactoEnCache(datosParaGuardarMin);
-            } else {
+                  } else {
         console.log('[RESUMEN][POST-APPSHEET] Respuesta ambigua (204/empty). Iniciamos read-after-write por TELEFONO:', phone);
 
         try {
-          // Leer la tabla y obtener la fila por TELEFONO
+          // 1) READ-AFTER-WRITE: leer remoto
           const rows = await getTable(APPSHEETCONFIG, HOJA_CONTACTOS);
           const remoto = Array.isArray(rows)
             ? rows.find(r => String(r.TELEFONO) === String(phone))
             : undefined;
 
-          if (!remoto) {
-            console.log('⚠️ [READ-AFTER-WRITE] No se encontró el contacto remoto tras Edit ambiguo. Caché NO actualizada.');
-          } else {
-            const remotoLen = (remoto.RESUMEN_ULTIMA_CONVERSACION || '').length;
-            const localLen  = (datosParaGuardarMin.RESUMEN_ULTIMA_CONVERSACION || '').length;
+          const localUlt = (datosParaGuardarMin.RESUMEN_ULTIMA_CONVERSACION || '');
+          const localUltLen = localUlt.length;
 
-            if (remotoLen === localLen && remotoLen > 0) {
-              console.log('✅ [READ-AFTER-WRITE] Confirmado en AppSheet. Actualizamos caché local.');
-              actualizarContactoEnCache({
-                TELEFONO: phone,
-                RESUMEN_ULTIMA_CONVERSACION: remoto.RESUMEN_ULTIMA_CONVERSACION || '',
-                RESUMEN_2: remoto.RESUMEN_2 || '',
-                FECHA_ULTIMO_CONTACTO: remoto.FECHA_ULTIMO_CONTACTO || datosParaGuardarMin.FECHA_ULTIMO_CONTACTO
-              });
+          if (!remoto) {
+            console.log('⚠️ [READ-AFTER-WRITE] No se encontró el contacto remoto tras Edit ambiguo.');
+
+            // 2) DIAG Paso A: intentemos marcar ETIQUETA para verificar si la fila es editable
+            const marca = `AUTO_RESUMEN_TEST_${ahoraMarca()}`;
+            console.log('🧪 [DIAG] Enviando ETIQUETA de prueba:', marca);
+            await editarPorTelefono({ TELEFONO: phone, ETIQUETA: marca });
+
+            // 3) leer de nuevo
+            const rows2 = await getTable(APPSHEETCONFIG, HOJA_CONTACTOS);
+            const remoto2 = Array.isArray(rows2)
+              ? rows2.find(r => String(r.TELEFONO) === String(phone))
+              : undefined;
+
+            if (remoto2 && remoto2.ETIQUETA === marca) {
+              console.log('✅ [DIAG] ETIQUETA sí cambió → la fila es editable; el problema está en el campo de resumen.');
             } else {
-              console.log(`⚠️ [READ-AFTER-WRITE] No coincide longitud remoto(${remotoLen}) vs local(${localLen}). Caché NO actualizada.`);
+              console.log('❌ [DIAG] ETIQUETA no cambió → parece que la fila no es editable con la API/Key actual o está filtrada.');
+            }
+
+            console.log('⚠️ [READ-AFTER-WRITE] Caché NO actualizada.');
+            return;
+          }
+
+          const remotoLen = (remoto.RESUMEN_ULTIMA_CONVERSACION || '').length;
+
+          if (remotoLen === localUltLen && remotoLen > 0) {
+            console.log('✅ [READ-AFTER-WRITE] Confirmado en AppSheet. Actualizamos caché local.');
+            actualizarContactoEnCache({
+              TELEFONO: phone,
+              RESUMEN_ULTIMA_CONVERSACION: remoto.RESUMEN_ULTIMA_CONVERSACION || '',
+              RESUMEN_2: remoto.RESUMEN_2 || '',
+              FECHA_ULTIMO_CONTACTO: remoto.FECHA_ULTIMO_CONTACTO || datosParaGuardarMin.FECHA_ULTIMO_CONTACTO
+            });
+          } else {
+            console.log(`⚠️ [READ-AFTER-WRITE] No coincide longitud remoto(${remotoLen}) vs local(${localUltLen}).`);
+
+            // 4) DIAG Paso B: intento con RESUMEN corto (para descartar límite de tamaño/validación)
+            const pruebaCorta = `[OK] ${ahoraMarca()}`;
+            console.log('🧪 [DIAG] Intento corto RESUMEN_ULTIMA_CONVERSACION:', pruebaCorta);
+            await editarPorTelefono({ TELEFONO: phone, RESUMEN_ULTIMA_CONVERSACION: pruebaCorta });
+
+            // 5) leer tercera vez
+            const rows3 = await getTable(APPSHEETCONFIG, HOJA_CONTACTOS);
+            const remoto3 = Array.isArray(rows3)
+              ? rows3.find(r => String(r.TELEFONO) === String(phone))
+              : undefined;
+
+            const remoto3Len = (remoto3?.RESUMEN_ULTIMA_CONVERSACION || '').length;
+
+            if (remoto3 && remoto3Len === pruebaCorta.length) {
+              console.log('✅ [DIAG] El resumen corto SÍ se guardó → probable restricción de tamaño/validación en AppSheet para el largo.');
+              console.log('⚠️ [READ-AFTER-WRITE] Caché NO actualizada con el largo original (revisar AppSheet: tipo LongText, Editable_If, Valid_If).');
+            } else {
+              console.log('❌ [DIAG] Ni siquiera el resumen corto se guardó → problema de permisos/edición/slice/Editable_If en AppSheet.');
             }
           }
+
         } catch (eRaw) {
-          console.log('⚠️ [READ-AFTER-WRITE] Error leyendo AppSheet tras 204:', eRaw?.message || eRaw);
+          console.log('⚠️ [READ-AFTER-WRITE] Error durante diagnóstico tras 204:', eRaw?.message || eRaw);
         }
       }
+
       console.log(`📝 Historial de resúmenes procesado para ${phone}`);
     } else {
       console.log('❌ [RESUMEN][POST-APPSHEET] Error o respuesta no OK. Caché NO actualizada.');
