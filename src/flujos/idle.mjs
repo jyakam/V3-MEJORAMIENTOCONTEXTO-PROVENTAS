@@ -31,10 +31,9 @@ console.log(`${OP_ID} [IDLE] INICIO CIERRE. Historial mensajes:`, historial.leng
 if (contactoCacheAntes) {
   const { TELEFONO, NOMBRE, EMAIL, CIUDAD, _RowNumber } = contactoCacheAntes;
   console.log(`${OP_ID} [IDLE] CONTACTO EN CACHÉ (ANTES):`, { TELEFONO, NOMBRE, EMAIL, CIUDAD, _RowNumber });
-  const t1 = (contactoCacheAntes.RESUMEN_ULTIMA_CONVERSACION || '').length;
+    const t1 = (contactoCacheAntes.RESUMEN_ULTIMA_CONVERSACION || '').length;
   const t2 = (contactoCacheAntes.RESUMEN_2 || '').length;
-  const t3 = (contactoCacheAntes.RESUMEN_3 || '').length;
-  console.log(`${OP_ID} [IDLE] LONGITUDES RESÚMENES (ANTES):`, { t1, t2, t3 });
+  console.log(`${OP_ID} [IDLE] LONGITUDES RESÚMENES (ANTES):`, { t1, t2 });
 }
 
   if (historial.length > 3) { // Solo si hubo conversación relevante
@@ -57,10 +56,9 @@ if (contactoCacheAntes) {
   if (contactoCacheDespues) {
     const { TELEFONO, NOMBRE, EMAIL, CIUDAD, _RowNumber } = contactoCacheDespues;
     console.log(`${OP_ID} [IDLE] CONTACTO EN CACHÉ (DESPUÉS):`, { TELEFONO, NOMBRE, EMAIL, CIUDAD, _RowNumber });
-    const d1 = (contactoCacheDespues.RESUMEN_ULTIMA_CONVERSACION || '').length;
+        const d1 = (contactoCacheDespues.RESUMEN_ULTIMA_CONVERSACION || '').length;
     const d2 = (contactoCacheDespues.RESUMEN_2 || '').length;
-    const d3 = (contactoCacheDespues.RESUMEN_3 || '').length;
-    console.log(`${OP_ID} [IDLE] LONGITUDES RESÚMENES (DESPUÉS):`, { d1, d2, d3 });
+    console.log(`${OP_ID} [IDLE] LONGITUDES RESÚMENES (DESPUÉS):`, { d1, d2 });
   }
 
   console.log(`✅ [IDLE] Resumen global de sesión guardado para ${phone}`);
