@@ -2,6 +2,7 @@
 import { createBot, createProvider, createFlow, MemoryDB } from '@builderbot/bot'
 import { BaileysProvider } from '@builderbot/provider-baileys'
 import { Inicializar, BOT } from './src/config/bot.mjs'
+import { ActivarCompatLID } from './src/funciones/proveedor.mjs'
 
 // 🔧 MODULOS DEL SISTEMA
 import { APIREST } from './src/APIs/API_Rest.mjs'
@@ -50,10 +51,14 @@ const main = async () => {
   console.log('✅ ESTADO_CONEXION completado')
 
   PROVEEDOR.name = ENUNPROV.BAILEYS
-  PROVEEDOR.prov = adapterProvider
+PROVEEDOR.prov = adapterProvider
+
+// 🔧 Activa compatibilidad LID (hotfix no intrusivo)
+// Envuelve sendMessage/sendMedia con reintentos cuando el JID termine en "@lid"
+ActivarCompatLID()
 
 await Inicializar()
-  console.log('🚦 [app.js] BOT.PRODUCTOS después de Inicializar:', BOT.PRODUCTOS)
+console.log('🚦 [app.js] BOT.PRODUCTOS después de Inicializar:', BOT.PRODUCTOS)
    console.log('🤖 Creando bot')
   const bot = await createBot({
     flow: adapterFlow,
