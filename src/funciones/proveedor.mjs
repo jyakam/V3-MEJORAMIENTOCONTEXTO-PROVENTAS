@@ -216,3 +216,101 @@ export async function GuardarArchivos(ctx) {
     return null;
   }
 }
+
+// === HOTFIX COMPATIBILIDAD LID (NO INTRUSIVO) ===
+// Este bloque añade reintentos ante timeouts cuando el destinatario es un JID que termina en "@lid".
+// No modifica el almacenamiento de contactos ni el flujo de negocio. Solo endurece el envío.
+
+export function ActivarCompatLID() {
+  try {
+    if (!PROVEEDOR?.prov || PROVEEDOR.prov.__lid_patched) {
+      return false; // no hay provider aún o ya está activado
+    }
+
+    const prov = PROVEEDOR.prov;
+    prov.__lid_patched = true;
+
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const isLid = (jid) => typeof jid === 'string' && /@lid$/.test(jid);
+
+    const isTimeout = (err) => {
+      // Cubre patrones de timeout típicos de Baileys/USync
+      const msg = (err && (err.message || err.data?.message)) || '';
+      const code = err?.output?.statusCode;
+      const st = (err && (err.stack || err.data?.stack)) || '';
+      return code === 408 || /Timed Out/i.test(msg) || /usync|executeUSyncQuery|waitForMessage/i.test(st);
+    };
+
+    const withRetry = async (fn, args, jidLabel) => {
+      const schedule = [0, 800, 2500]; // 3 intentos: inmediato, +0.8s, +2.5s
+      let lastErr;
+      for (let i = 0; i < schedule.length; i++) {
+        if (i > 0) await sleep(schedule[i]);
+        try {
+          return await fn(...args);
+        } catch (e) {
+          lastErr = e;
+          const intento = i + 1;
+          const quedan = schedule.length - intento;
+          console.warn(`⚠️ [LID-Retry] intento ${intento} fallido (${jidLabel})`, e?.message || e);
+          if (!isTimeout(e) || quedan <= 0) break; // solo reintenta si es timeout típico
+        }
+      }
+      throw lastErr;
+    };
+
+    // Patch: sendMessage
+    const _sendMessage = prov.sendMessage?.bind(prov);
+    if (_sendMessage) {
+      prov.sendMessage = async function patchedSendMessage(jid, content, options) {
+        try {
+          return await _sendMessage(jid, content, options);
+        } catch (e) {
+          if (isLid(jid) && isTimeout(e)) {
+            console.warn(`⚠️ [LID] timeout al enviar a ${jid}. Reintentando...`);
+            return await withRetry(_sendMessage, [jid, content, options], jid);
+          }
+          throw e;
+        }
+      };
+    }
+
+    // Patch: sendMedia (si existe en tu provider)
+    const _sendMedia = prov.sendMedia?.bind(prov);
+    if (_sendMedia) {
+      prov.sendMedia = async function patchedSendMedia(jid, media) {
+        try {
+          return await _sendMedia(jid, media);
+        } catch (e) {
+          if (isLid(jid) && isTimeout(e)) {
+            console.warn(`⚠️ [LID] timeout al enviar media a ${jid}. Reintentando...`);
+            return await withRetry(_sendMedia, [jid, media], jid);
+          }
+          throw e;
+        }
+      };
+    }
+
+    // Patch: presencia escribiendo (opcional; ya tienes try/catch, pero lo endurecemos)
+    const _sendPresence = prov.vendor?.sendPresenceUpdate?.bind(prov.vendor);
+    if (_sendPresence) {
+      prov.vendor.sendPresenceUpdate = async function patchedPresence(presence, jid) {
+        try {
+          return await _sendPresence(presence, jid);
+        } catch (e) {
+          if (isLid(jid) && isTimeout(e)) {
+            console.warn(`⚠️ [LID] timeout presencia a ${jid}. Reintentando...`);
+            return await withRetry(_sendPresence, [presence, jid], jid);
+          }
+          throw e;
+        }
+      };
+    }
+
+    console.log('🔧 Compatibilidad LID activada (hotfix no intrusivo).');
+    return true;
+  } catch (e) {
+    console.warn('⚠️ No se pudo activar la compatibilidad LID:', e?.message || e);
+    return false;
+  }
+}
