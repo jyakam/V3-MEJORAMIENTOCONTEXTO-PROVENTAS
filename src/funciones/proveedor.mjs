@@ -165,8 +165,10 @@ export function ObtenerContactos() {
       const result = []
       const obj = PROVEEDOR.prov.store?.contacts
       for (const key in obj) {
-        if (obj[key].id.includes('@s.whatsapp.net')) {
-          result.push(obj[key])
+               const id = (obj[key].id || '').toString();
+        // Incluir usuarios normales y leads LID; seguimos excluyendo grupos aquí
+        if (/@s\.whatsapp\.net$|@lid$/.test(id)) {
+          result.push(obj[key]);
         }
       }
       return result
@@ -182,21 +184,34 @@ export function ObtenerContactos() {
 
 //TT COMPROBAR DESTINATARIO
 function ComprobarDestinatario(dest) {
-  //si es numero de telefono
-  if (/^\d+$/.test(dest)) {
-    return dest + '@s.whatsapp.net'
+  // Normalización básica
+  if (typeof dest !== 'string' || !dest.trim()) return null;
+  const d = dest.trim();
+
+  // 1) Ya viene como JID completo → lo aceptamos tal cual
+  //    - usuarios normales: *@s.whatsapp.net
+  //    - leads/campañas: *@lid
+  //    - grupos: *@g.us
+  if (/@s\.whatsapp\.net$|@lid$|@g\.us$/.test(d)) {
+    return d;
   }
-  //si es un grupos
-  else {
-    const grupos = ObtenerGrupos()
-    if (grupos && grupos !== 'DESCONECTADO') {
-      const _destino = grupos.find((obj) => obj.name === dest)
-      if (_destino) {
-        return _destino.id
-      }
-    }
+
+  // 2) Solo dígitos (o +dígitos) → formar usuario normal
+  if (/^\+?\d+$/.test(d)) {
+    const num = d.replace(/^\+/, '');
+    return num + '@s.whatsapp.net';
   }
-  return null
+
+  // 3) Nombre de grupo → resolver por catálogo de grupos
+  const grupos = ObtenerGrupos();
+  if (grupos && grupos !== 'DESCONECTADO') {
+    // match por nombre o por id directo, por si acaso viene un id
+    const _destino = grupos.find((obj) => obj.name === d || obj.id === d);
+    if (_destino) return _destino.id;
+  }
+
+  // 4) No calza con nada conocido
+  return null;
 }
 
 //TT GUARDAR ARCHIVOS (VERSIÓN FINAL Y CORRECTA)
