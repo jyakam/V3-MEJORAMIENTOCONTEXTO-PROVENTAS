@@ -254,7 +254,8 @@ export const flowIAinfo = addKeyword(EVENTS.WELCOME)
     console.log('      [DIAGNÓSTICO] Estado ANTES de procesar:', JSON.stringify(currentStateWelcome));
 
     const { flowDynamic, endFlow, gotoFlow, provider, state } = tools;
-    const phone = ctx.from.split('@')[0];
+    const jid = ctx.from;
+const phone = jid.includes('@') ? jid.split('@')[0] : jid;
     const message = ctx.body.trim();
     await DetectarArchivos(ctx, state); // Detección temprana de tipo de mensaje
 console.log(`[WELCOME] init + detectarArchivos. Tipo: ${state.get('tipoMensaje')}`);
@@ -411,7 +412,8 @@ await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, sta
     } else {
         // --- CAMINO 2: EL MENSAJE ES TEXTO ---
         AgruparMensaje(ctx, async (txt, ctx) => {
-            const phone = ctx.from.split('@')[0];
+            const jid = ctx.from;
+const phone = jid.includes('@') ? jid.split('@')[0] : jid;
             const tools = { ctx, flowDynamic, endFlow, gotoFlow, provider, state };
             const textoFinalUsuario = txt;
             const contacto = Cache.getContactoByTelefono(phone);
@@ -471,7 +473,8 @@ await manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, sta
     console.log('      [DIAGNÓSTICO] Estado ANTES de procesar:', JSON.stringify(currentStateCapture));
 
     const { flowDynamic, endFlow, gotoFlow, provider, state } = tools;
-    const phone = ctx.from.split('@')[0];
+    const jid = ctx.from;
+const phone = jid.includes('@') ? jid.split('@')[0] : jid;
     const message = ctx.body.trim();
 
     console.log('🟢 [IAINFO] Estado actual: PASO', state.get('pasoFlujoActual') + 1, ', seccionesActivas:', state.get('seccionesActivas') || []);
@@ -562,7 +565,8 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
     } else {
         console.log(`🔀 [FLUJO CAPTURE] Detectado tipo de mensaje: ${tipoMensajeActual}. Se procesará como texto.`);
         AgruparMensaje(ctx, async (txt, ctx) => {
-            const phone = ctx.from.split('@')[0];
+            const jid = ctx.from;
+const phone = jid.includes('@') ? jid.split('@')[0] : jid;
             const tools = { ctx, flowDynamic, endFlow, gotoFlow, provider, state };
             const textoFinalUsuario = txt;
             const contacto = Cache.getContactoByTelefono(phone);
@@ -612,7 +616,8 @@ console.log('🐞 [DEBUG FECHAS] Tipo de la variable "phone":', typeof phone);
 // -------- NUEVA Y DEFINITIVA FUNCIÓN MANEJARRESPUESTAIA (PEGAR ESTA) --------
 // Reemplaza tu función manejarRespuestaIA con esta versión final y completa
 async function manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, provider, state, txt) {
-    const phone = ctx.from.split('@')[0];
+    const jid = ctx.from;
+const phone = jid.includes('@') ? jid.split('@')[0] : jid;
     const tools = { ctx, flowDynamic, endFlow, gotoFlow, provider, state };
 
     console.log('🔄 [MANEJAR_IA] Iniciando procesamiento de respuesta...');
@@ -706,7 +711,8 @@ async function manejarRespuestaIA(res, ctx, flowDynamic, endFlow, gotoFlow, prov
         console.log('✅ [ROUTER] Acción detectada: 🧩solicitarayuda. Notificando al asesor...');
     
         // 1. Obtenemos la información del contacto desde la caché.
-        const phone = ctx.from.split('@')[0];
+        const jid = ctx.from;
+const phone = jid.includes('@') ? jid.split('@')[0] : jid;
         const contacto = Cache.getContactoByTelefono(phone) || {}; // Usamos || {} para evitar errores si no se encuentra
     
         // 2. Preparamos el objeto con los datos del usuario para la notificación.
@@ -763,13 +769,15 @@ async function Responder(res, ctx, flowDynamic, state) {
 
     const msj = await EnviarImagenes(nuevaRespuesta, flowDynamic, ctx); // Usamos la respuesta LIMPIA
     const startTime = Date.now();
-    console.log('⏱️ [DEBUG] Inicio de envío de mensaje a', ctx.from.split('@')[0]);
+    const __jidDebug = ctx.from;
+const __phoneDebug = __jidDebug.includes('@') ? __jidDebug.split('@')[0] : __jidDebug;
+console.log('⏱️ [DEBUG] Inicio de envío de mensaje | jid:', __jidDebug, '| phone:', __phoneDebug);
     await flowDynamic(msj);
 
     // Guardar mensaje del bot en el historial
     actualizarHistorialConversacion(nuevaRespuesta, 'bot', state);
 
-    console.log('⏱️ [DEBUG] Fin de envío de mensaje a', ctx.from.split('@')[0], 'Tiempo:', Date.now() - startTime, 'ms');
+    console.log('⏱️ [DEBUG] Fin de envío de mensaje | jid:', __jidDebug, '| phone:', __phoneDebug, '| Tiempo:', Date.now() - startTime, 'ms');
     return;
   }
 }
