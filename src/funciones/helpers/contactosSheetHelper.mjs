@@ -105,8 +105,11 @@ async function postTableWithRetrySafe(config, table, data, props, retries = 3, d
 function limpiarRowContacto(row, action = 'Add') { // Le añadimos el parámetro "action"
   const out = { ...row }
 
-  // Siempre eliminamos _RowNumber del payload para evitar inconsistencias; la Key es TELEFONO
-  delete out._RowNumber
+  // 1) Solo borramos el _RowNumber si la acción es 'Add' (añadir nuevo)
+  // Si es 'Edit', lo necesitamos para que AppSheet sepa a quién editar.
+  if (action === 'Add') {
+    delete out._RowNumber
+  }
 
   // 2) mapear 'TIPO DE CLIENTE' -> 'TIPO_DE_CLIENTE' si llega con espacio
   if (out['TIPO DE CLIENTE'] && !out.TIPO_DE_CLIENTE) {
