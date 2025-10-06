@@ -196,30 +196,35 @@ export async function ActualizarContacto(phone, datosNuevos = {}) {
     console.log(`📥 [CONTACTOS] Preparando datos para ${phone}.`);
 
     try {
-        // 1. OBTENER EL CONTACTO MÁS RECIENTE DE LA CACHÉ
         const contactoPrevio = getContactoByTelefono(phone);
-
         let contactoParaEnviar;
 
         if (contactoPrevio) {
-            // Si existe, fusionamos los datos nuevos con los viejos
+            // SI EL CONTACTO YA EXISTE: fusionamos los datos nuevos con los viejos
             contactoParaEnviar = { ...contactoPrevio, ...datosNuevos };
         } else {
-            // Si no existe, creamos la estructura base para el nuevo contacto
+            // SI ES UN CONTACTO NUEVO: construimos el "formulario completo"
+            console.log('📝 [CONTACTOS] Construyendo esqueleto completo para nuevo contacto.');
+            
+            const esqueleto = COLUMNAS_VALIDAS.reduce((acc, col) => {
+                acc[col] = '';
+                return acc;
+            }, {});
+
             contactoParaEnviar = {
+                ...esqueleto,
                 ...datosNuevos,
                 TELEFONO: phone,
-                FECHA_PRIMER_CONTACTO: new Date().toLocaleDate-String('es-CO'),
+                FECHA_PRIMER_CONTACTO: new Date().toLocaleDateString('es-CO'),
                 ETIQUETA: 'Nuevo',
                 RESP_BOT: 'TRUE'
             };
         }
 
-        // 2. ASEGURAR SIEMPRE LA FECHA DE ÚLTIMO CONTACTO
+        // Aseguramos siempre la fecha de último contacto
         contactoParaEnviar.FECHA_ULTIMO_CONTACTO = new Date().toLocaleDateString('es-CO');
 
-        // 3. ACTUALIZAR LA CACHÉ LOCALMENTE
-        // El guardado final en AppSheet lo hará la próxima ejecución de ActualizarFechasContacto
+        // Actualizamos la caché local con el objeto completo
         actualizarContactoEnCache(contactoParaEnviar);
         console.log(`✅ [CONTACTOS] Contacto para ${phone} actualizado en caché. El guardado en AppSheet es inminente.`);
 
