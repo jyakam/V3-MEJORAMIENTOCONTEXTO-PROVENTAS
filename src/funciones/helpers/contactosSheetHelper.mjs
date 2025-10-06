@@ -7,6 +7,7 @@ import { getContactoByTelefono, actualizarContactoEnCache } from './cacheContact
 // PASO 1: IMPORTAMOS NUESTRO NUEVO GESTOR DE LA FILA
 import { addTask } from './taskQueue.mjs'
 import { getTable } from 'appsheet-connect'
+import { COLUMNAS_VALIDAS } from '../../config/contactos.mjs';
 
 // --- INICIO NUEVA FUNCIÓN DE LIMPIEZA ---
 // Esta función elimina caracteres que pueden causar problemas en AppSheet
@@ -140,33 +141,41 @@ const HOJA_CONTACTOS = process.env.PAG_CONTACTOS
 export async function ActualizarFechasContacto(contacto, phone) {
   const hoy = ObtenerFechaActual()
 
-  const existeEnCache = !!getContactoByTelefono(phone)
-  let contactoCompleto = getContactoByTelefono(phone) || contacto || {}
+  let contactoPrevio = getContactoByTelefono(phone) || contacto || {}
+  const action = contactoPrevio._RowNumber ? 'Edit' : 'Add';
 
-  // --- INICIO CORRECCIÓN: DETERMINAR ACCIÓN ---
-  // Si el contacto NO tiene un _RowNumber, es una acción de 'Añadir' (Add). Si lo tiene, es 'Editar' (Edit).
-  const action = contactoCompleto._RowNumber ? 'Edit' : 'Add';
-  // --- FIN CORRECCIÓN: DETERMINAR ACCIÓN ---
-
-  const datos = {
-    ...contactoCompleto,
+  let datosAEnviar = {
+    ...contactoPrevio,
     TELEFONO: phone,
-    FECHA_PRIMER_CONTACTO: contactoCompleto?.FECHA_PRIMER_CONTACTO || hoy,
+    FECHA_PRIMER_CONTACTO: contactoPrevio?.FECHA_PRIMER_CONTACTO || hoy,
     FECHA_ULTIMO_CONTACTO: hoy
   }
 
-  console.log(`🕓 [FECHAS] Contacto ${phone} → Acción: ${action}`, datos)
+  // --- INICIO DE LA CORRECCIÓN DEFINITIVA ---
+  // Si es una acción de 'Añadir', nos aseguramos de que el objeto tenga todas las columnas.
+  if (action === 'Add') {
+    console.log('📝 [FECHAS] Acción "Add" detectada. Construyendo esqueleto completo...');
+    const esqueleto = COLUMNAS_VALIDAS.reduce((acc, col) => {
+        acc[col] = ''; // Inicializa todas las columnas como vacías
+        return acc;
+    }, {});
+    
+    // Fusionamos el esqueleto con los datos que sí tenemos
+    datosAEnviar = {
+        ...esqueleto,
+        ...datosAEnviar
+    };
+  }
+  // --- FIN DE LA CORRECCIÓN DEFINITIVA ---
+
+  console.log(`🕓 [FECHAS] Contacto ${phone} → Acción: ${action}`)
 
   try {
-    console.log(`[DEBUG FECHAS] ENCOLAR Tabla=${HOJA_CONTACTOS}`)
-    
-    // Pasamos la acción correcta ('Add' o 'Edit') a la función de limpieza
-    const row = limpiarRowContacto(datos, action)
+    const row = limpiarRowContacto(datosAEnviar, action)
     console.log('[DEBUG FECHAS] Row FINAL (sanitizado):', JSON.stringify(row, null, 2))
 
     const propsDinamicas = { Action: action, UserSettings: { DETECTAR: false } };
 
-    // 🔑 Capturamos la respuesta de AppSheet
     const respuesta = await addTask(() => {
       console.log('[DEBUG FECHAS] Usando la configuración global APPSHEETCONFIG para la operación')
       return postTableWithRetrySafe(APPSHEETCONFIG, HOJA_CONTACTOS, [row], propsDinamicas)
@@ -174,16 +183,13 @@ export async function ActualizarFechasContacto(contacto, phone) {
 
     console.log(`📆 Contacto ${phone} actualizado con fechas.`)
     
-    // --- INICIO CORRECCIÓN DE SINCRONIZACIÓN ---
-    // Si AppSheet nos devolvió el contacto creado/actualizado (con _RowNumber), usamos esa información para actualizar el caché.
     if (respuesta && respuesta.ok && respuesta.data && respuesta.data.length > 0) {
         console.log('✅ [SYNC] Sincronizando caché con respuesta de AppSheet.');
         actualizarContactoEnCache(respuesta.data[0]);
     } else {
         console.log('⚠️ [SYNC] No hubo respuesta de AppSheet, actualizando caché con datos locales.');
-        actualizarContactoEnCache({ ...contactoCompleto, ...datos });
+        actualizarContactoEnCache(datosAEnviar);
     }
-    // --- FIN CORRECCIÓN DE SINCRONIZACIÓN ---
 
   } catch (err) {
     console.log(`❌ Error actualizando fechas para ${phone} via queue:`, err?.message)
