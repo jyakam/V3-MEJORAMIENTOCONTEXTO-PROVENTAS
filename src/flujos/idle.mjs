@@ -16,55 +16,29 @@ export const idleFlow = addKeyword(EVENTS.ACTION).addAction(
   const OP_ID = `[OP:${phone}:${Date.now()}]`; // <-- CORRECCIÓN: Movido aquí arriba
 
    try {
-  // 1. Obtener el historial de la conversación
-  const historial = state.get('historialMensajes') || [];
-  
-  // --- NUEVO LOG DE DEPURACIÓN ---
-  // Esta "cámara" nos muestra los datos del contacto ANTES de hacer cualquier cosa.
-  console.log('📸 [DEBUG IDLE] Estado del contacto en CACHÉ ANTES de guardar:', JSON.stringify(getContactoByTelefono(phone), null, 2));
-  // --- FIN DEL NUEVO LOG ---
+      // 1. Obtener el historial de la conversación
+      const historial = state.get('historialMensajes') || [];
+      const phone = ctx.from.split('@')[0];
 
-  // === LOGS DE CORRELACIÓN Y SANIDAD (solo lectura) ===
-const contactoCacheAntes = getContactoByTelefono(phone) || null;
-
-console.log(`${OP_ID} [IDLE] INICIO CIERRE. Historial mensajes:`, historial.length);
-if (contactoCacheAntes) {
-  const { TELEFONO, NOMBRE, EMAIL, CIUDAD, _RowNumber } = contactoCacheAntes;
-  console.log(`${OP_ID} [IDLE] CONTACTO EN CACHÉ (ANTES):`, { TELEFONO, NOMBRE, EMAIL, CIUDAD, _RowNumber });
-    const t1 = (contactoCacheAntes.RESUMEN_ULTIMA_CONVERSACION || '').length;
-  const t2 = (contactoCacheAntes.RESUMEN_2 || '').length;
-  console.log(`${OP_ID} [IDLE] LONGITUDES RESÚMENES (ANTES):`, { t1, t2 });
-}
-
-  if (historial.length > 3) { // Solo si hubo conversación relevante
+      if (historial.length > 3) { // Solo si hubo conversación relevante
         const textoHistorial = historial.map(msg => 
           `${msg.rol === 'cliente' ? 'Cliente' : 'Bot'}: ${msg.texto}`
         ).join('\n');
 
         // 2. Llama a OpenAI para hacer el resumen global
-        const resumenGlobal = await generarResumenMejorado(textoHistorial, phone);
+        const resumenGlobal = await generarResumenConversacionGlobalIA(textoHistorial, phone);
 
-       // 3. Guarda el resumen en AppSheet/Google Sheets
-      if (resumenGlobal) {
-  console.log(`${OP_ID} [IDLE] Resumen global generado. Longitud=`, resumenGlobal.length, 
-              'Preview=', resumenGlobal.slice(0, 150), '...');
-
-  await ActualizarResumenUltimaConversacion(phone, resumenGlobal);
-
-  // Verificar cómo queda la caché inmediatamente después del intento
-  const contactoCacheDespues = getContactoByTelefono(phone) || null;
-  if (contactoCacheDespues) {
-    const { TELEFONO, NOMBRE, EMAIL, CIUDAD, _RowNumber } = contactoCacheDespues;
-    console.log(`${OP_ID} [IDLE] CONTACTO EN CACHÉ (DESPUÉS):`, { TELEFONO, NOMBRE, EMAIL, CIUDAD, _RowNumber });
-        const d1 = (contactoCacheDespues.RESUMEN_ULTIMA_CONVERSACION || '').length;
-    const d2 = (contactoCacheDespues.RESUMEN_2 || '').length;
-    console.log(`${OP_ID} [IDLE] LONGITUDES RESÚMENES (DESPUÉS):`, { d1, d2 });
-  }
-
-  console.log(`✅ [IDLE] Resumen global de sesión guardado para ${phone}`);
-}
+        // 3. Guarda el resumen en AppSheet/Google Sheets
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Primero obtenemos el expediente completo del contacto desde el caché
+        const contacto = getContactoByTelefono(phone); 
+        if (resumenGlobal && contacto) { // Aseguramos que el contacto exista antes de guardar
+          // Ahora pasamos el expediente completo a la función de guardado
+          await ActualizarResumenUltimaConversacion(contacto, phone, resumenGlobal);
+          console.log(`✅ [IDLE] Resumen global de sesión guardado para ${phone}`);
+        }
+        // --- FIN DE LA CORRECCIÓN ---
       }
-
       // --- INICIO DE LA NUEVA LÓGICA PARA CREAR PEDIDO ---
       try {
         const carrito = state.get('carrito');
