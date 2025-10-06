@@ -16,7 +16,7 @@ const propiedades = {
   UserSettings: { DETECTAR: false }
 }
 
-const COLUMNAS_VALIDAS = [
+export const COLUMNAS_VALIDAS = [
   'FECHA_PRIMER_CONTACTO',
   'FECHA_ULTIMO_CONTACTO',
   'TELEFONO',
