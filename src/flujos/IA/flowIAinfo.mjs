@@ -272,56 +272,49 @@ export const flowIAinfo = addKeyword(EVENTS.WELCOME)
       console.log('🟢 [IAINFO] Estado existente: PASO', state.get('pasoFlujoActual') + 1, ', seccionesActivas:', state.get('seccionesActivas') || []);
     }
 
-    console.log('📩 [IAINFO] Mensaje recibido de:', jid) // MODIFICADO: Logueamos el JID completo
+    console.log('📩 [IAINFO] Mensaje recibido de:', jid)
     console.log(`🔍 [IAINFO] Estado inicial de la caché: ${Cache.getCacheContactos().length} contactos`)
 
     let contacto;
 
-    // ------ INICIO DE LA NUEVA LÓGICA CONDICIONAL ------
-    if (jid.endsWith('@s.whatsapp.net')) {
-        console.log(`👤 [TIPO CONTACTO] JID de usuario real detectado (${phone}). Procediendo con lógica de guardado.`);
-        // Es un número real, procedemos a buscarlo o crearlo en la base de datos
-        contacto = Cache.getContactoByTelefono(phone)
+    // ------ INICIO DE LA LÓGICA CORREGIDA PARA IDENTIFICAR CONTACTOS ------
+    // Regla: Si el JID termina en @s.whatsapp.net O es una cadena de puros números, es un contacto REAL.
+    if (jid.endsWith('@s.whatsapp.net') || /^\d+$/.test(jid)) {
+        console.log(`👤 [TIPO CONTACTO] JID de usuario real detectado (${jid}). Procediendo con lógica de guardado.`);
+        
+        contacto = Cache.getContactoByTelefono(phone);
         if (!contacto) {
-            console.log(`🔄 [IAINFO] Contacto no encontrado, intentando recargar caché`)
-            await Cache.cargarContactosDesdeAppSheet()
-            contacto = Cache.getContactoByTelefono(phone)
-            console.log(`🔍 [IAINFO] Contacto tras recargar caché:`, contacto)
+            console.log(`🔄 [IAINFO] Contacto no encontrado, intentando recargar caché...`);
+            await Cache.cargarContactosDesdeAppSheet();
+            contacto = Cache.getContactoByTelefono(phone);
         }
 
         if (!contacto) {
-            console.log(`🆕 [IAINFO] Creando contacto nuevo para: ${phone}`)
+            console.log(`🆕 [IAINFO] Creando contacto nuevo para: ${phone}`);
             try {
-                await ActualizarContacto(phone, { NOMBRE: ctx.name || 'Sin Nombre', RESP_BOT: 'Sí', ETIQUETA: 'Nuevo' })
-                contacto = Cache.getContactoByTelefono(phone)
-                console.log('👤 [IAINFO] Contacto nuevo registrado en DB:', phone)
+                // Usamos ctx.name para capturar el Public Name de WhatsApp
+                await ActualizarContacto(phone, { NOMBRE: ctx.name || 'Sin Nombre', RESP_BOT: 'Sí', ETIQUETA: 'Nuevo' });
+                contacto = Cache.getContactoByTelefono(phone);
+                console.log('👤 [IAINFO] Contacto nuevo registrado en DB:', phone);
             } catch (error) {
-                console.error(`❌ [IAINFO] Error al crear contacto ${phone}:`, error.message)
-                // Fallback si la escritura falla
-                contacto = { TELEFONO: phone, NOMBRE: ctx.name || 'Sin Nombre', RESP_BOT: 'Sí', ETIQUETA: 'Nuevo' }
+                console.error(`❌ [IAINFO] Error al crear contacto ${phone}:`, error.message);
+                contacto = { TELEFONO: phone, NOMBRE: ctx.name || 'Sin Nombre', RESP_BOT: 'Sí', ETIQUETA: 'Nuevo' };
                 Cache.actualizarContactoEnCache(contacto);
-                console.log(`⚠️ [IAINFO] Usando contacto local para ${phone}`)
+                console.log(`⚠️ [IAINFO] Usando contacto local para ${phone}`);
             }
         }
         
-        // Siempre actualizamos la fecha de último contacto para usuarios reales
-        if (contacto) await ActualizarFechasContacto(contacto, phone)
+        if (contacto) await ActualizarFechasContacto(contacto, phone);
 
     } else if (jid.endsWith('@lid')) {
         console.log(`🏷️ [TIPO CONTACTO] JID de Lead de Meta Ads detectado (${jid}). Omitiendo guardado en DB.`);
-        // Es un lead de Meta, creamos un objeto de contacto temporal en memoria, NO lo guardamos en DB
-        contacto = {
-            TELEFONO: phone, // Usamos la parte numérica como ID temporal
-            NOMBRE: 'Lead de Meta',
-            RESP_BOT: 'Sí',
-            ETIQUETA: 'Lead'
-        }
+        contacto = { TELEFONO: phone, NOMBRE: 'Lead de Meta', RESP_BOT: 'Sí', ETIQUETA: 'Lead' };
+    
     } else {
         console.warn(`❓ [TIPO CONTACTO] JID desconocido (${jid}). Tratando como temporal.`);
-        // Para cualquier otro caso, lo tratamos como temporal para no corromper la DB
-        contacto = { TELEFONO: phone, NOMBRE: 'Usuario Desconocido', RESP_BOT: 'Sí', ETIQUETA: 'Desconocido' }
+        contacto = { TELEFONO: phone, NOMBRE: 'Usuario Desconocido', RESP_BOT: 'Sí', ETIQUETA: 'Desconocido' };
     }
-    // ------ FIN DE LA NUEVA LÓGICA CONDICIONAL ------
+    // ------ FIN DE LA LÓGICA CORREGIDA ------
 
     // --- INICIO: Carga de Contexto Anterior (CAMINO ARCHIVOS) ---
     const contextoAnterior = await cargarContextoAnterior(phone);
@@ -469,12 +462,12 @@ const phone = jid.includes('@') ? jid.split('@')[0] : jid;
     let contacto;
     const datos = {};
 
-    // ------ INICIO DE LA NUEVA LÓGICA CONDICIONAL (CAPTURE) ------
-    if (jid.endsWith('@s.whatsapp.net')) {
-        console.log(`👤 [TIPO CONTACTO CAPTURE] JID de usuario real detectado (${phone}). Procediendo con lógica de guardado.`);
+    // ------ INICIO DE LA LÓGICA CORREGIDA PARA IDENTIFICAR CONTACTOS (CAPTURE) ------
+    if (jid.endsWith('@s.whatsapp.net') || /^\d+$/.test(jid)) {
+        console.log(`👤 [TIPO CONTACTO CAPTURE] JID de usuario real detectado (${jid}). Procediendo con lógica de guardado.`);
         contacto = Cache.getContactoByTelefono(phone);
 
-        // Si por alguna razón no existe en caché en este punto, lo creamos
+        // Si por alguna razón no existe en caché en este punto, lo creamos (medida de seguridad)
         if (!contacto) {
             console.warn(`⚠️ [IAINFO CAPTURE] Contacto ${phone} no estaba en caché. Creando ahora.`);
             try {
@@ -486,12 +479,15 @@ const phone = jid.includes('@') ? jid.split('@')[0] : jid;
                 Cache.actualizarContactoEnCache(contacto);
             }
         }
-    } else {
+    } else if (jid.endsWith('@lid')) {
         console.log(`🏷️ [TIPO CONTACTO CAPTURE] JID temporal detectado (${jid}). Omitiendo guardado en DB.`);
-        // Usamos un objeto temporal para que el resto del flujo no falle
         contacto = { TELEFONO: phone, NOMBRE: 'Lead de Meta', RESP_BOT: 'Sí', ETIQUETA: 'Lead' };
+
+    } else {
+        console.warn(`❓ [TIPO CONTACTO CAPTURE] JID desconocido (${jid}). Tratando como temporal.`);
+        contacto = { TELEFONO: phone, NOMBRE: 'Usuario Desconocido', RESP_BOT: 'Sí', ETIQUETA: 'Desconocido' };
     }
-    // ------ FIN DE LA NUEVA LÓGICA CONDICIONAL (CAPTURE) ------
+    // ------ FIN DE LA LÓGICA CORREGIDA (CAPTURE) ------
 
     // Detecta y guarda nombre/email si está presente literal
     if (/me llamo|mi nombre es/i.test(message)) {
@@ -502,7 +498,7 @@ const phone = jid.includes('@') ? jid.split('@')[0] : jid;
     if (email) datos.EMAIL = email[0];
 
     // ------ Intentar actualización de datos por IA (SOLO si es un contacto real) ------
-    if (jid.endsWith('@s.whatsapp.net')) {
+    if (jid.endsWith('@s.whatsapp.net') || /^\d+$/.test(jid)) {
         const esDatosContacto = await detectarIntencionContactoIA(message);
         if (esDatosContacto) {
             await verificarYActualizarContactoSiEsNecesario(message, phone, contacto, datos);
@@ -512,7 +508,6 @@ const phone = jid.includes('@') ? jid.split('@')[0] : jid;
         // Actualiza fechas de contacto SIEMPRE para usuarios reales
         if (contacto) await ActualizarFechasContacto(contacto, phone);
     }
-
     // --- INICIO: Carga de Contexto Anterior (CAPTURE) ---
     const contextoAnterior = await cargarContextoAnterior(phone);
     const promptConContexto = inyectarContextoAlPrompt(contextoAnterior);
