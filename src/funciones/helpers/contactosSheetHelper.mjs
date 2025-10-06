@@ -137,46 +137,51 @@ const HOJA_CONTACTOS = process.env.PAG_CONTACTOS
 export async function ActualizarFechasContacto(contacto, phone) {
   const hoy = ObtenerFechaActual()
 
-  // ¿Existe ya en la caché?
   const existeEnCache = !!getContactoByTelefono(phone)
   let contactoCompleto = getContactoByTelefono(phone) || contacto || {}
+
+  // --- INICIO CORRECCIÓN: DETERMINAR ACCIÓN ---
+  // Si el contacto NO tiene un _RowNumber, es una acción de 'Añadir' (Add). Si lo tiene, es 'Editar' (Edit).
+  const action = contactoCompleto._RowNumber ? 'Edit' : 'Add';
+  // --- FIN CORRECCIÓN: DETERMINAR ACCIÓN ---
 
   const datos = {
     ...contactoCompleto,
     TELEFONO: phone,
-    // Si ya existía, conservamos la primera; si es nuevo, la fijamos hoy
     FECHA_PRIMER_CONTACTO: contactoCompleto?.FECHA_PRIMER_CONTACTO || hoy,
     FECHA_ULTIMO_CONTACTO: hoy
   }
 
-  console.log(`🕓 [FECHAS] Contacto ${phone} →`, datos)
+  console.log(`🕓 [FECHAS] Contacto ${phone} → Acción: ${action}`, datos)
 
   try {
     console.log(`[DEBUG FECHAS] ENCOLAR Tabla=${HOJA_CONTACTOS}`)
-    console.log('[DEBUG FECHAS] Row ENCOLADO (crudo):', JSON.stringify(datos, null, 2))
-
-    // ====== INICIO DE LA CORRECCIÓN ======
-    // Movemos este bloque aquí arriba para que la variable exista antes de usarla.
-    const propsDinamicas = { UserSettings: { DETECTAR: false } }
-    // ====== FIN DE la CORRECCIÓN ======
-
-    // Sanitizar/normalizar antes de enviar (fechas a ISO, sin _RowNumber, etc.)
-    const row = limpiarRowContacto(datos, propsDinamicas.Action)
+    
+    // Pasamos la acción correcta ('Add' o 'Edit') a la función de limpieza
+    const row = limpiarRowContacto(datos, action)
     console.log('[DEBUG FECHAS] Row FINAL (sanitizado):', JSON.stringify(row, null, 2))
 
-    console.log(`[DEBUG FECHAS] Acción AppSheet = ${propsDinamicas.Action}`)
-    console.log('[FECHAS][ROW] claves=', Object.keys(row).sort());
-console.log('[FECHAS][ROW] snapshot:', { TELEFONO: row.TELEFONO, NOMBRE: row.NOMBRE, EMAIL: row.EMAIL, CIUDAD: row.CIUDAD, _RowNumber: row._RowNumber });
+    const propsDinamicas = { Action: action, UserSettings: { DETECTAR: false } };
 
-    // 🔑 Instancia FRESCA de AppSheet por operación (evita estado raro)
-    await addTask(() => {
-      // Ya no creamos una configuración local. Usamos la que sabemos que funciona.
+    // 🔑 Capturamos la respuesta de AppSheet
+    const respuesta = await addTask(() => {
       console.log('[DEBUG FECHAS] Usando la configuración global APPSHEETCONFIG para la operación')
       return postTableWithRetrySafe(APPSHEETCONFIG, HOJA_CONTACTOS, [row], propsDinamicas)
     })
 
     console.log(`📆 Contacto ${phone} actualizado con fechas.`)
-    actualizarContactoEnCache({ ...contactoCompleto, ...datos })
+    
+    // --- INICIO CORRECCIÓN DE SINCRONIZACIÓN ---
+    // Si AppSheet nos devolvió el contacto creado/actualizado (con _RowNumber), usamos esa información para actualizar el caché.
+    if (respuesta && respuesta.ok && respuesta.data && respuesta.data.length > 0) {
+        console.log('✅ [SYNC] Sincronizando caché con respuesta de AppSheet.');
+        actualizarContactoEnCache(respuesta.data[0]);
+    } else {
+        console.log('⚠️ [SYNC] No hubo respuesta de AppSheet, actualizando caché con datos locales.');
+        actualizarContactoEnCache({ ...contactoCompleto, ...datos });
+    }
+    // --- FIN CORRECCIÓN DE SINCRONIZACIÓN ---
+
   } catch (err) {
     console.log(`❌ Error actualizando fechas para ${phone} via queue:`, err?.message)
     if (err?.response) {
@@ -189,59 +194,55 @@ console.log('[FECHAS][ROW] snapshot:', { TELEFONO: row.TELEFONO, NOMBRE: row.NOM
     } else if (err?.stack) {
       console.log('[DEBUG FECHAS] ERROR STACK:', err.stack)
     }
-    // LAS LÍNEAS PROBLEMÁTICAS HAN SIDO ELIMINADAS DE AQUÍ
   }
 }
 
-// VERSIÓN SIMPLIFICADA A UN SOLO RESUMEN
-export async function ActualizarResumenUltimaConversacion(phone, nuevoResumen) {
-  console.log(`🧠 Intentando guardar resumen para ${phone}...`);
+export async function ActualizarResumenUltimaConversacion(contacto, phone, resumen) {
+  console.log(`🧠 Intentando guardar resumen para ${phone}:`, resumen)
 
-  // 1. Validamos que el resumen generado sea de buena calidad
+  // Validaciones para guardar solo resúmenes útiles
   if (
-    !nuevoResumen ||
-    nuevoResumen.length < 10 ||
-    nuevoResumen.trim().startsWith('{') ||
-    nuevoResumen.trim().startsWith('```json')
+    !resumen ||
+    resumen.length < 5 ||
+    resumen.trim().startsWith('{') ||
+    resumen.trim().startsWith('```json')
   ) {
-    console.log(`⛔ Resumen ignorado por formato inválido o de baja calidad para ${phone}`);
-    return;
+    console.log(`⛔ Resumen ignorado por formato inválido para ${phone}`)
+    return
   }
 
-  // 2. Preparamos el paquete de datos MÍNIMO y SIMPLIFICADO
-  const datosParaGuardar = {
+  // --- INICIO DE LA CORRECCIÓN CLAVE ---
+  // Construimos el "paquete completo" fusionando el contacto existente con el nuevo resumen.
+  let contactoCompleto = getContactoByTelefono(phone) || contacto || {};
+
+  const datos = {
+    ...contactoCompleto,
     TELEFONO: phone,
-    RESUMEN_ULTIMA_CONVERSACION: limpiarTextoParaAppSheet(nuevoResumen),
-    FECHA_ULTIMO_CONTACTO: ObtenerFechaActual()
-  };
+    RESUMEN_ULTIMA_CONVERSACION: resumen.trim(),
+    FECHA_ULTIMO_CONTACTO: ObtenerFechaActual() // Aseguramos actualizar la fecha
+  }
+  // --- FIN DE LA CORRECCIÓN CLAVE ---
 
   try {
-    // 3. Preparamos las propiedades y limpiamos la fila (mismo proceso seguro de siempre)
-    const props = { Action: 'Edit' };
-    const row = limpiarRowContacto(datosParaGuardar, 'Edit');
+    const propsDinamicas = { Action: 'Edit', UserSettings: { DETECTAR: false } }
     
-    console.log('[RESUMEN][ROW] Preparando para enviar. Claves:', Object.keys(row).sort());
+    // Usamos 'Edit' porque esta función siempre actualiza un contacto existente.
+    const row = limpiarRowContacto(datos, 'Edit')
+    console.log('[DEBUG RESUMEN] Row FINAL (sanitizado):', JSON.stringify(row, null, 2))
 
-    // 4. Usamos la cola de tareas y el enviador seguro que ya funcionan
-    const result = await addTask(() => postTableWithRetrySafe(APPSHEETCONFIG, HOJA_CONTACTOS, [row], props));
+    // Instancia FRESCA por operación
+    await addTask(() => {
+      console.log('[DEBUG RESUMEN] Usando la configuración global APPSHEETCONFIG para la operación')
+      return postTableWithRetrySafe(APPSHEETCONFIG, HOJA_CONTACTOS, [row], propsDinamicas)
+    })
 
-    // 5. Verificamos la respuesta y actualizamos la caché local
-    if (result && result.ok) {
-      console.log(`✅ [RESUMEN] Operación de guardado para ${phone} enviada a AppSheet.`);
-      
-      // Obtenemos el estado previo del contacto para no perder datos al actualizar la caché
-      const contactoPrevio = getContactoByTelefono(phone) || { TELEFONO: phone };
-      
-      // Fusionamos el estado previo con los nuevos datos y actualizamos la caché
-      actualizarContactoEnCache({ ...contactoPrevio, ...datosParaGuardar });
-      console.log(`[CACHE] Caché local actualizada para ${phone} con el nuevo resumen.`);
-
-    } else {
-      console.log(`❌ [RESUMEN] La operación de guardado falló o tuvo una respuesta no exitosa para ${phone}.`);
-    }
-
+    console.log(`📝 Resumen actualizado para ${phone}`)
+    actualizarContactoEnCache({ ...contactoCompleto, ...datos })
   } catch (err) {
-    console.log(`❌ Error definitivo guardando el resumen para ${phone}: ${err.message}`);
+    console.log(`❌ Error guardando resumen para ${phone} via queue:`, err?.message)
+    
+    actualizarContactoEnCache({ ...contactoCompleto, ...datos })
+    console.log(`⚠️ Cache actualizada localmente para ${phone} pese a error en AppSheet`)
   }
 }
 
