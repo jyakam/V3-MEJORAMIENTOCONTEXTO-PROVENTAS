@@ -151,22 +151,24 @@ export async function ActualizarFechasContacto(contacto, phone) {
     FECHA_ULTIMO_CONTACTO: hoy
   }
 
-  // --- INICIO DE LA CORRECCIÓN DEFINITIVA ---
-  // Si es una acción de 'Añadir', nos aseguramos de que el objeto tenga todas las columnas.
+  // --- INICIO DE LA CORRECCIÓN FINAL ---
+  // Si es una acción de 'Añadir', nos aseguramos de que el objeto tenga todas las columnas y valores por defecto válidos.
   if (action === 'Add') {
-    console.log('📝 [FECHAS] Acción "Add" detectada. Construyendo esqueleto completo...');
+    console.log('📝 [FECHAS] Acción "Add" detectada. Construyendo esqueleto completo y válido...');
     const esqueleto = COLUMNAS_VALIDAS.reduce((acc, col) => {
-        acc[col] = ''; // Inicializa todas las columnas como vacías
+        acc[col] = ''; // 1. Inicializa todas las columnas como vacías
         return acc;
     }, {});
     
-    // Fusionamos el esqueleto con los datos que sí tenemos
+    // 2. Fusionamos el esqueleto con los datos que tenemos y AÑADIMOS los valores por defecto REQUERIDOS.
     datosAEnviar = {
         ...esqueleto,
-        ...datosAEnviar
+        ...datosAEnviar,
+        ETIQUETA: 'Nuevo', // Valor por defecto para nuevos contactos
+        RESP_BOT: 'TRUE'   // Valor por defecto para que el bot responda
     };
   }
-  // --- FIN DE LA CORRECCIÓN DEFINITIVA ---
+  // --- FIN DE LA CORRECCIÓN FINAL ---
 
   console.log(`🕓 [FECHAS] Contacto ${phone} → Acción: ${action}`)
 
