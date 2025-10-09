@@ -50,58 +50,36 @@ function aIso(entrada) {
   return entrada
 }
 
-// PROPUESTA (solo logs + manejo explícito de cuerpo vacío/no-JSON)
-// ¿Autorizas reemplazar la función entera por esta versión?
+// ====== NUEVO BLOQUE DE CÓDIGO PARA PEGAR ======
+
+// Wrapper local para que la respuesta vacía de AppSheet no rompa la ejecución
 async function postTableWithRetrySafe(config, table, data, props, retries = 3, delay = 1000) {
-  console.log('📦 [DEBUG RESUMEN] Datos enviados a AppSheet:', JSON.stringify(data, null, 2));
-
-  const reqLen = JSON.stringify(data).length;
-  console.log('[APPSHEET][REQ] Tabla:', table, 'Props=', props, 'PayloadLength=', reqLen);
-
   for (let i = 0; i < retries; i++) {
     try {
-      const t0 = Date.now();
+      // usamos la misma firma que postTable, pero tolerante a cuerpo vacío / string
       const resp = await postTable(config, table, data, props);
-      const dt = Date.now() - t0;
-      console.log(`[APPSHEET][RESP][try=${i+1}] tipo=`, typeof resp, 'tiempoMs=', dt);
-
-      // Respuesta vacía/undefined (p.ej., 204 No Content) => éxito ambiguo
-      if (resp == null) {
-        console.log(`[APPSHEET][RESP][try=${i+1}] cuerpo vacío/undefined (posible 204).`);
-        return { ok: true, hasBody: false, ambiguous: true, status: undefined, data: undefined };
-      }
-
+      if (!resp) return []; // AppSheet a veces responde sin cuerpo (204), lo tratamos como éxito sin datos.
       if (typeof resp === 'string') {
-        const raw = String(resp);
-        console.log(`[APPSHEET][RESP][try=${i+1}] string len=`, raw.length, 'preview=', raw.slice(0, 200));
-        try {
-          const json = JSON.parse(raw);
-          return { ok: true, hasBody: true, ambiguous: false, status: undefined, data: json };
-        } catch (e) {
-          console.log(`[APPSHEET][RESP][try=${i+1}] string no-JSON; lo tratamos como vacío/ambiguo. Motivo:`, e?.message);
-          return { ok: true, hasBody: false, ambiguous: true, status: undefined, data: undefined };
+        try { 
+          return JSON.parse(resp); 
+        } catch { 
+          return []; // Si la respuesta es un string no-JSON, lo tratamos como éxito sin datos.
         }
       }
-
-      // Objeto ya parseado
-      return { ok: true, hasBody: true, ambiguous: false, status: undefined, data: resp };
-
+      return resp;
     } catch (err) {
-      const msg = err?.message || '';
-      const isEmptyJSON = err?.name === 'SyntaxError' && /Unexpected end of JSON input/i.test(msg);
-      if (isEmptyJSON) {
-        console.log(`[APPSHEET][RESP][try=${i+1}] SyntaxError por cuerpo vacío (posible 204). Lo tratamos como ambiguous.`);
-        return { ok: true, hasBody: false, ambiguous: true, status: undefined, data: undefined };
-      }
-      console.error(`[APPSHEET][ERROR][try=${i+1}]`, err?.name, msg);
+      // El error SyntaxError por cuerpo vacío será capturado aquí y se reintentará.
+      console.error(`[APPSHEET][ERROR][try=${i+1}]`, err?.name, err?.message);
       if (i === retries - 1) {
-        console.error(`❌ [HELPER] Fallo definitivo tras ${retries} intentos.`);
-        throw err;
+        console.error(`❌ [HELPER] Fallo definitivo en postTable tras ${retries} intentos.`);
+        throw err; // Solo lanzamos el error en el último reintento.
       }
       await new Promise(r => setTimeout(r, delay));
     }
   }
 }
+
+// ====== FIN DEL NUEVO BLOQUE ======
 
 function limpiarRowContacto(row, action = 'Add') { // Le añadimos el parámetro "action"
   const out = { ...row }
